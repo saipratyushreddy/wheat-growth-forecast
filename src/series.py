@@ -5,6 +5,8 @@ plots.parquet   one row per plot-year: ids, split, sowing date, final outcomes (
 series.parquet  one row per plot-year x trait x date: das (days after sowing), gdd (our degree days), value (float32).
                 Same-date duplicates are averaged. Canopy cover stays a 0-1 fraction.
 weather.parquet one row per year x day: daily mean air temperature at 2 m (float32).
+weather2.parquet (week 2, --weather-extra) one row per year x day: tmean, precip (daily sum), irr (mean solar irradiance),
+                hum (mean air humidity at 2 m), all at 2 m, float32.
 
 Degree days (our definition, used everywhere): base 0 degC, daily mean of hourly air temperature at 2 m, summed from the
 sowing day. It does not reproduce the dataset's heading values in degC d (see docs/01-plan.md).
@@ -42,6 +44,34 @@ def year_weather(root):
         dm = t.groupby(t.time.dt.normalize()).t.mean()
         rows.append(pd.DataFrame({"year": y, "date": dm.index, "tmean": dm.values.astype(np.float32)}))
     return pd.concat(rows, ignore_index=True)
+
+
+EXTRA = {"tmean": ("temperature_air_200cm", "mean"), "precip": ("precipitation_200cm", "sum"),
+         "irr": ("irradiance_solar_200cm", "mean"), "hum": ("humidity_air_200cm", "mean")}
+
+
+def year_weather_extra(root):
+    """Daily weather (week 2): the four series in EXTRA per harvest year, read one row per year by row group."""
+    cols = ["harvest_year"] + [f"{v}_{k}" for v, _ in EXTRA.values() for k in ("values", "dates")]
+    got = {}
+    for f in sorted(glob.glob(os.path.join(root, "data", "*.parquet"))):
+        pf = pq.ParquetFile(f)
+        for i in range(pf.num_row_groups):
+            t = pf.read_row_group(i, columns=cols).to_pandas()
+            for y, g in t.groupby("harvest_year"):
+                got.setdefault(int(y), g.iloc[0])
+            del t
+    rows = []
+    for y, r in sorted(got.items()):
+        day = None
+        for name, (v, how) in EXTRA.items():
+            t = pd.DataFrame({"day": pd.to_datetime(pd.Series(r[f"{v}_dates"])).dt.normalize(),
+                              "x": np.asarray(r[f"{v}_values"], np.float32).astype(np.float32)})
+            d = t.groupby("day").x.agg(how).astype(np.float32).rename(name)
+            day = d.to_frame() if day is None else day.join(d, how="outer")
+        rows.append(day.reset_index().rename(columns={"day": "date"}).assign(year=y))
+    out = pd.concat(rows, ignore_index=True)
+    return out[["year", "date"] + list(EXTRA)]
 
 
 def gdd_table(weather, sow_by_year):
@@ -97,5 +127,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="data/fip1")
     ap.add_argument("--out", default="data/derived")
+    ap.add_argument("--weather-extra", action="store_true", help="only build weather2.parquet (week 2)")
     a = ap.parse_args()
-    build(a.root, a.out)
+    if a.weather_extra:
+        year_weather_extra(a.root).to_parquet(os.path.join(a.out, "weather2.parquet"), index=False)
+    else:
+        build(a.root, a.out)

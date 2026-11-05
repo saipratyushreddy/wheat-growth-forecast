@@ -242,3 +242,38 @@ No other level model is tried: with five training years, a learned year-level mo
   - `src/seq.py`: S;
   - `src/final2.py`: L1, D;
   - `src/run_week2.py`: the runner.
+
+## Clarifications made while implementing, before tuning or any result
+
+These settle points the design left open. None was prompted by a result.
+
+1. **Variety heading from other years is allowed as an input.**
+   - The design lists it under genetics, but its "not used" list repeats week 1's "any heading information as an
+     input".
+   - Resolved the way week 1's F1 already works:
+     - the plot's own heading, or any heading in the forecast season, is never an input;
+     - the variety's heading in other years is variety history and is allowed.
+2. **G+W uses G's tuned configuration.** It is not tuned separately, so the ablation differs from G only in its inputs.
+3. **S's epoch count per trait comes from one network.** S is trained on both traits at once, so "per trait" means: one
+   training run, with the checkpoint for each trait chosen from {10, 25, 50}.
+4. **Variety features use slightly fewer years for training rows.**
+   - "Other years" for a training row means the other training years: four in leave-one-year-out.
+   - For a test row it means all five training years.
+   - Test rows' variety features are therefore slightly less noisy than those the model was trained on. This is
+     inherent to the other-years rule.
+5. **Missing values in D-lin:**
+   - missing features are set to 0, which is the year mean after centring;
+   - flags mark missing canopy cover, height and variety history;
+   - D-gbm takes the missing values natively.
+6. **Tuning uses only official-train plots' samples.** Other plots are never scored in tuning, so this changes no fit.
+7. **The runner enforces the order of steps:**
+   - the official test refuses to run before the validation sanity check, or a second time;
+   - leave-one-year-out refuses to run before the official test, or a second time;
+   - an interrupted leave-one-year-out resumes per held-out year. Settings are frozen and every fit is seeded, so a
+     resumed fold is identical.
+8. **Validation numbers were seen during a timing check.**
+   - A timing check of G on the official split printed validation MAE for two configurations from the grid:
+     - canopy cover 5.0 and 4.0 points vs N3 7.4;
+     - height 2.9 and 2.2 cm vs N3 4.7.
+   - Validation shares its years with training, so this is the year-lookup optimism this design avoids selecting on.
+   - It was not used for any choice and is recorded here only because it was seen.
