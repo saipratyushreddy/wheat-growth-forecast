@@ -17,6 +17,6 @@ fi
 [ -d .venv ] || "$PY" -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install numpy==2.5.4 pandas==3.1.1 pyarrow==26.0.1 scipy==1.18.1 scikit-learn==1.9.1 pytest==9.2.0 huggingface_hub==2.4.0
+pip install numpy==2.5.4 pandas==3.1.1 pyarrow==26.0.1 scipy==1.18.1 scikit-learn==1.9.1 pytest==9.2.0 huggingface_hub==2.4.0 transformers==5.22.1 pillow==13.0.0
 pip install torch==2.15.0 --index-url https://download.pytorch.org/whl/cpu   # CPU build: week 2 needs no GPU
 python -c "import numpy, pandas, sklearn, torch; print('ok', numpy.__version__, pandas.__version__, sklearn.__version__, torch.__version__)"

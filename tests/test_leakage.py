@@ -245,3 +245,36 @@ def test_d_gbm_handles_feature_missing_in_all_training_rows():
     Z = np.c_[rng.normal(size=(20, 2)), rng.normal(size=20)]  # present at prediction time, absent in training
     p = FD._fit("gbm", dict(max_leaf_nodes=7, max_iter=20), X, rng.normal(size=200))(Z)
     assert p.shape == (20,) and np.isfinite(p).all()
+
+
+# ---------------------------------------------------------------- week 3 (docs/04-week3-design.md)
+
+def test_photo_features_match_recomputation():
+    """Stored features of a few photos equal a fresh one-photo recomputation (guards against misordered batches).
+    Needs data/photos (Swan); skipped elsewhere."""
+    import glob as _glob
+    if not _glob.glob("data/photos/features_*.parquet"):
+        pytest.skip("photo features not built here")
+    import io as _io
+    import photos as PH
+    from huggingface_hub import hf_hub_download
+    from PIL import Image
+    d, X = PH.load_features()
+    enc = PH.Encoder()
+    rng = np.random.default_rng(0)
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as tmp:
+        for i in rng.choice(len(d), 3, replace=False):
+            f = hf_hub_download(PH.REPO, d.path.iloc[i], repo_type="dataset", revision=PH.REVISION, local_dir=tmp)
+            c, m = enc([PH.Encoder.preprocess(Image.open(f))])
+            assert np.allclose(np.r_[c[0], m[0]], X[i], atol=1e-4)
+
+
+def test_photo_index_covers_tables():
+    import photos as PH
+    if not os.path.exists(PH.INDEX):
+        pytest.skip("photo index not built")
+    idx = pd.read_parquet(PH.INDEX)
+    plots, _, _ = load_derived()
+    assert len(idx) == 153022 and set(idx.plot_uid) == set(plots.plot_uid)
+    assert idx.groupby("plot_uid").shard.nunique().max() == 1 and idx.shard.nunique() == PH.N_SHARDS
