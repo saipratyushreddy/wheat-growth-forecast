@@ -152,3 +152,75 @@ are also reported as **within-year Spearman rank correlation**, the breeding-rel
    - Selecting on plain MAE therefore favours a year lookup, which cannot carry over to an unseen year.
    - Within-year error = each validation year's mean error is subtracted before taking the MAE.
    - F2 was already selected on deviations from the year mean. N5 is unchanged.
+
+## Results (2026-11-05)
+
+**How the runs were done:**
+- The official test splits were scored once (`outputs/week1/official_test_*.csv`), after commit f86fb02.
+- Leave-one-year-out followed, with the ridge strengths chosen on validation (`outputs/week1/loyo_*.csv`).
+- Errors are MAE. 95% intervals resample varieties.
+
+### Near-future growth
+
+Unseen year, official split `test_environment` (2019, 190 plots):
+
+| Forecast | N0 last value | N2 average curve | **N3 shifted curve** | N5 linear |
+|---|---|---|---|---|
+| Canopy cover +7 d (points) | 4.81 | 5.50 | **3.68** [3.55, 3.81] | 3.94 |
+| Canopy cover +14 d | 8.70 | 6.19 | **4.52** [4.36, 4.67] | 4.88 |
+| Canopy cover +28 d | 15.85 | 7.28 | **4.47** [4.26, 4.67] | 4.78 |
+| Height +7 d (cm) | 4.75 | 4.02 | **2.21** [2.15, 2.29] | 2.25 |
+| Height +14 d | 9.47 | 4.32 | **2.61** [2.51, 2.72] | 2.85 |
+| Height +28 d | 17.96 | 4.64 | **3.24** [3.08, 3.43] | 4.37 |
+
+Leave-one-year-out, mean over six years (range of N3 across years):
+
+| Forecast | N0 | **N3** | N5 | Years where N5 < N3 |
+|---|---|---|---|---|
+| Canopy cover +7 / +14 / +28 d | 7.5 / 11.3 / 19.1 | 6.1 / 7.6 / 9.9 (3.5-13.4) | 6.3 / 7.5 / 9.8 | 2 / 4 / 3 of 6 |
+| Height +7 / +14 / +28 d | 5.6 / 11.5 / 22.9 | 3.0 / 4.8 / 7.5 (2.2-9.5) | 3.0 / 4.7 / 7.2 | 4 / 4 / 3 of 6 |
+
+**N3 is the bar for the near-future task.**
+- N3 shifts the average growth curve to the plot's current level.
+- It roughly halves the last-value error at 14-28 days.
+- At +7 days, canopy cover in 2019 is near the measurement noise floor (3.7 vs 3.4 points).
+
+**The linear model is not reliably better.**
+- It beats N3 in about half the held-out years.
+- It is worse in the official unseen year (height +28 d: 4.37 vs 3.24 cm).
+
+**2019 is the easiest year.**
+- Its errors are about half those of other years (canopy cover +28 d: 4.3 vs 8.3-13.4 points).
+- So the official unseen-year split alone gives an optimistic picture. Leave-one-year-out is needed.
+
+**Variety curves (N4) do not beat N3** in any split.
+
+### End of season
+
+**The level of a new year is not forecast.**
+- In-season linear (F3) is worse than the plain mean (F0) for heading in 4 of 6 held-out years. In 2019, at cutoff 180, it
+  is 14.7 vs 9.8 days.
+- F3 helps final height in several years (2016: 9.9 vs 15.4 cm).
+
+**Ranking within a year** (Spearman; genotyped varieties):
+
+| Target | Unseen year, varieties seen (LOYO, F1 / F2) | Unseen varieties (`test_genotype`, F2 / best F3) | Both new (`test_genotype_environment`, F2 / best F3) |
+|---|---|---|---|
+| Heading | 0.78-0.85 | 0.48 / 0.16 | 0.51 / 0.36 |
+| Final height | 0.89-0.94 | 0.79 / 0.40 | 0.80 / 0.36 |
+| Adjusted yield | 0.18-0.34 | 0.29 / 0.26 | 0.10 / 0.19 |
+
+- The variety's history, or its genetics when the variety is new, carries the ranking.
+- Measurements up to day 210 add little in this linear form.
+- Yield ranking is weak everywhere (at most 0.34).
+
+### What week 2 must do
+
+1. Predict **deviations from the shifted average curve**, so the model cannot memorise years.
+2. Combine **genetics with in-season measurements**.
+3. Be judged on **leave-one-year-out first**, with 2019 reported but not used as the headline.
+
+**Bar to beat:**
+- near-future: N3;
+- end-of-season ranking: F1 or F2;
+- end-of-season level: F0.
