@@ -1,0 +1,116 @@
+{
+ "G": {
+  "canopy_cover": {
+   "max_leaf_nodes": 63,
+   "max_iter": 200,
+   "min_samples_leaf": 100
+  },
+  "height": {
+   "max_leaf_nodes": 63,
+   "max_iter": 600,
+   "min_samples_leaf": 100
+  }
+ },
+ "S": {
+  "canopy_cover": 25,
+  "height": 50
+ },
+ "D": {
+  "[\"heading_das\", 120]": [
+   "gbm",
+   {
+    "max_leaf_nodes": 7,
+    "max_iter": 100
+   }
+  ],
+  "[\"heading_das\", 150]": [
+   "gbm",
+   {
+    "max_leaf_nodes": 7,
+    "max_iter": 100
+   }
+  ],
+  "[\"heading_das\", 180]": [
+   "gbm",
+   {
+    "max_leaf_nodes": 7,
+    "max_iter": 100
+   }
+  ],
+  "[\"height_final\", 120]": [
+   "gbm",
+   {
+    "max_leaf_nodes": 7,
+    "max_iter": 100
+   }
+  ],
+  "[\"height_final\", 150]": [
+   "gbm",
+   {
+    "max_leaf_nodes": 7,
+    "max_iter": 100
+   }
+  ],
+  "[\"height_final\", 180]": [
+   "lin",
+   {
+    "alpha": 0.1
+   }
+  ],
+  "[\"height_final\", 210]": [
+   "gbm",
+   {
+    "max_leaf_nodes": 7,
+    "max_iter": 100
+   }
+  ],
+  "[\"yield_adjusted\", 120]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ],
+  "[\"yield_adjusted\", 150]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ],
+  "[\"yield_adjusted\", 180]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ],
+  "[\"yield_adjusted\", 210]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ],
+  "[\"yield\", 120]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ],
+  "[\"yield\", 150]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ],
+  "[\"yield\", 180]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ],
+  "[\"yield\", 210]": [
+   "lin",
+   {
+    "alpha": 1000
+   }
+  ]
+ }
+}

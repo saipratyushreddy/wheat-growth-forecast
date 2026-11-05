@@ -288,3 +288,42 @@ These settle points the design left open. None was prompted by a result.
      is rerun.
    - This was prompted by the crash, not by any score. Tuning scores were visible in the logs, as tuning scores are
      meant to be.
+10. **The sequence model is not bit-for-bit repeatable.**
+    - Evidence: the 2017 tuning fold ran twice, before and after fix 9.
+      - G's scores were identical.
+      - S's held-out MAE differed in the third decimal, for example height after 10 epochs: 5.807 vs 5.834 cm.
+    - Cause: CPU training of S on different Swan nodes or thread counts.
+    - What this corrects: clarification 7 says a resumed leave-one-year-out fold is identical. That holds for every
+      model except S, which agrees only to about 0.03 MAE units.
+    - Settings were taken from the second run. Both runs pick the same epoch counts.
+
+## Settings chosen by tuning (2026-11-05)
+
+From leave-one-year-out inside official train, all five held-out years. Frozen in `outputs/week2/settings.json`, which
+is committed.
+
+- **G:**
+  - canopy cover: 63 leaves, 200 iterations, 100 per leaf;
+  - height: 63 leaves, 600 iterations, 100 per leaf.
+- **S:** 25 epochs (canopy cover), 50 epochs (height).
+- **D:**
+  - heading: D-gbm (7 leaves, 100 iterations) at every cutoff;
+  - final height: D-gbm (7 leaves, 100 iterations), except D-lin (strength 0.1) at day 180;
+  - yield and adjusted yield: D-lin (strength 1000) at every cutoff.
+
+## Validation sanity check (2026-11-05)
+
+Run once on Swan, fit on train, scored on the official validation split. It was used only to look for bugs; nothing was
+changed because of it.
+
+- **The week-1 baselines recomputed in the week-2 run reproduce week 1's validation results:**
+  - near future: same rows, MAE identical to 1e-12;
+  - end of season: same rows, MAE within 2e-5 and Spearman within 1e-4, which is floating-point differences in the
+    marker ridge on Swan.
+- **The new predictions are well formed:**
+  - every method has a prediction for every sample;
+  - all predictions lie in the physical range;
+  - L1 heading days lie between days 217 and 229.
+- **The validation errors are not a result.** Validation plots share their years with training, so the learned models'
+  much lower validation error (for example, canopy cover +7 d: G 3.6 vs N3 6.1 points) may come from same-season
+  information. That is the reason this design selects on held-out years. The headline is leave-one-year-out.
