@@ -8,4 +8,4 @@
 #SBATCH --output=outputs/week2/slurm/%x-%A_%a.out
 source scripts/swan/env.sh
 YEARS=(2016 2017 2018 2019 2021 2022)
-python src/run_week2.py --protocol loyo --year ${YEARS[$SLURM_ARRAY_TASK_ID]}
+python -u src/run_week2.py --protocol loyo --year ${YEARS[$SLURM_ARRAY_TASK_ID]}

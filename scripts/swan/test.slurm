@@ -6,4 +6,4 @@
 #SBATCH --time=06:00:00
 #SBATCH --output=outputs/week2/slurm/%x-%j.out
 source scripts/swan/env.sh
-python src/run_week2.py --protocol official --eval test
+python -u src/run_week2.py --protocol official --eval test

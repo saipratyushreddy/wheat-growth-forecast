@@ -5,4 +5,4 @@
 #SBATCH --time=00:30:00
 #SBATCH --output=outputs/week2/slurm/%x-%j.out
 source scripts/swan/env.sh
-python -m pytest tests -q -p no:warnings
+python -u -m pytest tests -q -p no:warnings
