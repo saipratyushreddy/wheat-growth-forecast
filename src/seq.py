@@ -5,6 +5,8 @@ from N3. L1 loss, ensemble of seeds. CPU only.
 
 Inputs come from near2.near_features(); anomalies use the training average curves rebuilt here from training plots.
 """
+import os
+
 import numpy as np
 import pandas as pd
 import torch
@@ -95,7 +97,7 @@ class SeqData:
 
 def train_predict(data, train_plots, epochs=EPOCH_GRID, seeds=SEEDS, batch=64, log=None):
     """Train on train_plots' queries; returns {epoch: residual predictions for all queries}, averaged over seeds."""
-    torch.set_num_threads(8)
+    torch.set_num_threads(int(os.environ.get("SLURM_CPUS_PER_TASK", os.cpu_count())))
     train_plots = set(train_plots)
     tr_rows = np.array([i for i, u in enumerate(data.uids) if u in train_plots])
     by_plot = pd.Series(np.arange(len(data.qplot))).groupby(data.qplot).apply(np.array).to_dict()

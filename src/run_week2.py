@@ -7,6 +7,9 @@ Week-2 runner (docs/03-week2-design.md).
   python src/run_week2.py --protocol loyo                       # headline; after the official test, settings frozen
   python src/run_week2.py --summarize loyo                      # (re)write summaries from saved predictions
 
+--year Y runs only one held-out year of --stage tune or --protocol loyo (one SLURM array task per year, scripts/swan/).
+Without it every remaining year runs in turn; the last call (or one without --year) aggregates once all years exist.
+
 Writes outputs/week2/. Week-1 baselines are recomputed in the same fits, with week-1 ridge strengths frozen.
 """
 import argparse
@@ -90,11 +93,13 @@ def _g_per_trait(feat, train, cfg, cols):
 
 # ---------------------------------------------------------------- tuning (inner leave-one-year-out on train)
 
-def tune(D):
+def tune(D, only=None):
     os.makedirs(OUT, exist_ok=True)
     tr_all = D.plots[D.plots.split == "train"]
     years = sorted(tr_all.year.unique())
     for y in years:
+        if only is not None and y != only:
+            continue
         path = f"{OUT}/tune_scores_{y}.json"
         if os.path.exists(path):
             log("tuning: held-out year", y, "already scored")
@@ -131,6 +136,9 @@ def tune(D):
         json.dump(sc, open(path, "w"), indent=1)
         log("tuning: held-out year", y, "done")
 
+    if not all(os.path.exists(f"{OUT}/tune_scores_{y}.json") for y in years):
+        log("tuning: not all held-out years scored yet; settings not written")
+        return
     scores = [json.load(open(f"{OUT}/tune_scores_{y}.json")) for y in years]
     mean = {part: pd.DataFrame([s[part] for s in scores]).mean() for part in ["G", "S", "D"]}
     settings = {"G": {}, "S": {}, "D": {}}
@@ -279,11 +287,12 @@ def main():
     ap.add_argument("--protocol", choices=["official", "loyo"], default="official")
     ap.add_argument("--eval", choices=["validation", "test"], default="validation")
     ap.add_argument("--summarize", choices=["official_validation", "official_test", "loyo"])
+    ap.add_argument("--year", type=int, help="run only this held-out year (tune or loyo)")
     a = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
     D = Data()
     if a.stage == "tune":
-        tune(D)
+        tune(D, a.year)
         return
     if a.summarize:
         return summarize(D, a.summarize)
@@ -309,6 +318,8 @@ def main():
         if os.path.exists(f"{OUT}/loyo_near_pred.parquet"):
             raise SystemExit("leave-one-year-out already run; it is run once")
         for y in sorted(D.plots.year.unique()):
+            if a.year is not None and y != a.year:
+                continue
             p = f"{OUT}/loyo_{y}_near_pred.parquet"
             if os.path.exists(p):  # resume after an interruption; settings are frozen so a fold is deterministic
                 log("year", y, "already done")
@@ -321,6 +332,9 @@ def main():
             pn[pn.plot_uid.isin(test)].to_parquet(p, index=False)
             log("year", y, "done")
         yrs = sorted(D.plots.year.unique())
+        if not all(os.path.exists(f"{OUT}/loyo_{y}_near_pred.parquet") for y in yrs):
+            log("leave-one-year-out: not all years done yet; not aggregated")
+            return
         pd.concat([pd.read_parquet(f"{OUT}/loyo_{y}_final_pred.parquet") for y in yrs]).to_parquet(
             f"{OUT}/loyo_final_pred.parquet", index=False)
         pd.concat([pd.read_parquet(f"{OUT}/loyo_{y}_near_pred.parquet") for y in yrs]).to_parquet(
