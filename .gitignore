@@ -12,4 +12,6 @@ outputs/week1/*
 !outputs/week1/official_alphas.json
 !outputs/week2/
 outputs/week2/*
+!outputs/week3/
+outputs/week3/*
 !outputs/week2/settings.json

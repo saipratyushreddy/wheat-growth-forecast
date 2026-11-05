@@ -168,3 +168,51 @@ years is within 3 points of the level **and** no year is more than 10 points bel
   - `src/analysis_w2.py`: part A;
   - `src/run_week3.py`: the runner;
   - `scripts/swan/*.slurm`.
+
+## Clarifications made while implementing, before any week-3 fit
+
+1. **Same-day photos are averaged after the PCA,** on their PCs, per plot and day after sowing.
+2. **Week-3 fits drop what week 3 does not compare:** G+W and the week-1 end-of-season baselines F0-F3. N3 is still
+   computed in every fit.
+3. **Ranges are computed for every wrapped model, including the photo versions E+P and D+P.** The write-up reports
+   photo-model ranges only if part B's rule is passed, as the design says.
+4. **The "photos add" rule is applied to the pooled leave-one-year-out set.** Per-year and official-split rows report
+   the difference only.
+5. **The official fit produces predictions for validation and test plots together.** Scoring is gated:
+   - test scoring refuses to run before validation scoring, or a second time;
+   - leave-one-year-out scoring refuses to run before the test.
+6. **Code check with stand-in features:** the full pipeline (units, ranges, comparisons) was run on the laptop with
+   random stand-in photo features and tiny settings. It produced no gaps in any method. No number from it is a result.
+
+## Part A results (2026-11-05)
+
+From `outputs/week3/partA*.csv`, built from week-2 leave-one-year-out predictions only.
+
+**A2: the field-wide error dominates, and it is where the learned models lose.**
+- For every model, most of the error is shared by all plots of a year on the same date. For example, canopy cover
+  +28 d in 2016 for N3: field-wide 8.7 of 10.4 points.
+- **Plot-specific error:** the learned models reduce it in almost every year, trait and horizon. Height +28 d: 2016
+  5.4 to 4.3 cm (G); 2017 4.0 to 3.1 cm.
+- **Field-wide error:** where they lose to N3, their field-wide error grew. Height +28 d, G vs N3: 2016 8.4 to 10.3 cm;
+  2019 2.3 to 4.0 cm.
+- So the models learn plot-level patterns that carry over to a new year. They also learn season-wide shifts from the
+  training years, which misfire in a new year.
+
+**A1: where 2016's loss happens.**
+- Canopy cover +28 d: G and E beat N3 up to about day 200, then lose heavily from day 210 to 250 (+13 to +15 points at
+  days 224-238), the ripening period.
+- Height +28 d: they are worse from day 182 on.
+
+**A3: extrapolation is not the main explanation.**
+- 0-18% of a held-out year's samples fall outside the training years' range of degree days so far, degree-day
+  increment or anomaly.
+- The error on those samples is sometimes much higher (2016 canopy cover: E 21.1 vs 10.8 points) and sometimes lower.
+
+**Exploratory, post hoc, not a result.**
+- Prompted by A2: keep only the plot-specific part of the learned correction to N3, by subtracting, on each issue date,
+  its mean over all plots of the field. That mean is known at forecast time and uses no target.
+- On the same week-2 leave-one-year-out predictions:
+  - this version of E beats N3 in 6 of 6 years for 5 of the 6 forecasts (5 of 6 years for canopy cover +14 d);
+  - its average gain is smaller than E's for canopy cover at 14-28 days.
+- It was found by looking at these errors, so evaluating it on them is circular. It is recorded as a hypothesis for an
+  independent test (FIP1SOY, week 4), and is not added to the week-3 models.

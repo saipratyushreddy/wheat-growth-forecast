@@ -89,8 +89,8 @@ def _fit(kind, cfg, X, y):
     return lambda Z: m.predict(Z[:, keep])
 
 
-def design_matrix(feat, kind):
-    X = feat[FEATS].copy()
+def design_matrix(feat, kind, cols=FEATS):
+    X = feat[cols].copy()
     if kind == "lin":  # ridge: missing -> 0 (centred features; 0 = year mean) plus flags
         X["var_missing"] = X.var_dev.isna().astype(float)
         X = X.fillna(0.0)
@@ -113,7 +113,7 @@ def features(plots, series, weather, gdd, markers, train_plots, alphas_w1):
     return out
 
 
-def fit_predict(plots, feats, weather, gdd, train_plots, train_years, choice):
+def fit_predict(plots, feats, weather, gdd, train_plots, train_years, choice, cols=FEATS, suffix=""):
     """choice: {(target, cutoff): [(kind, cfg), ...]} candidates to fit (one in normal runs, all in tuning).
     Returns long table: plot_uid, target, cutoff, method, pred (report units), truth."""
     train_plots = set(train_plots)
@@ -129,15 +129,16 @@ def fit_predict(plots, feats, weather, gdd, train_plots, train_years, choice):
         levels = {"L0": np.full(len(P), level0)}
         if target == "heading_das":
             levels["L1"] = heading_gdd_level(plots, gdd, weather, train_plots, train_years, c)[0].reindex(P.index).values
-            rows.append(pd.DataFrame({"plot_uid": P.index, "target": target, "cutoff": c, "method": "L1",
-                                      "pred": levels["L1"] * scale}))
+            if not suffix:
+                rows.append(pd.DataFrame({"plot_uid": P.index, "target": target, "cutoff": c, "method": "L1",
+                                          "pred": levels["L1"] * scale}))
         for i, (kind, cfg) in enumerate(choice[(target, c)]):
-            X = design_matrix(feat, kind)
+            X = design_matrix(feat, kind, cols)
             d = _fit(kind, cfg, X[trm], y)(X)
             name = "D" if len(choice[(target, c)]) == 1 else f"D_{i}"
             for lv, lvals in levels.items():
                 rows.append(pd.DataFrame({"plot_uid": P.index, "target": target, "cutoff": c,
-                                          "method": f"{lv}+{name}", "pred": (lvals + d) * scale}))
+                                          "method": f"{lv}+{name}{suffix}", "pred": (lvals + d) * scale}))
     out = pd.concat(rows, ignore_index=True)
     truth = plots.melt(id_vars=["plot_uid"], value_vars=list(F.TARGETS), var_name="target", value_name="truth")
     truth["truth"] = truth.truth * truth.target.map(F.TARGETS)

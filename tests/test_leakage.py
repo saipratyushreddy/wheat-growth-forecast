@@ -278,3 +278,74 @@ def test_photo_index_covers_tables():
     plots, _, _ = load_derived()
     assert len(idx) == 153022 and set(idx.plot_uid) == set(plots.plot_uid)
     assert idx.groupby("plot_uid").shard.nunique().max() == 1 and idx.shard.nunique() == PH.N_SHARDS
+
+
+def _fake_photos(plots, n_per=6, seed=0):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for uid, sow in zip(plots.plot_uid, plots.sowing_date):
+        for d in sorted(rng.choice(np.arange(10, 280), n_per, replace=False)):
+            rows.append((uid, sow + pd.Timedelta(days=int(d))))
+    meta = pd.DataFrame(rows, columns=["plot_uid", "date"])
+    return meta, rng.normal(size=(len(meta), 40)).astype(np.float32)
+
+
+def test_photo_inputs_dated_on_or_before_issue(data):
+    import photo_feats as PF
+    plots, series, weather, smp = data
+    meta, X = _fake_photos(plots)
+    ph = PF.photo_pcs(meta, X, plots, plots.plot_uid[plots.split == "train"])
+    s = smp.sample(500, random_state=0)
+    got = PF.near_inputs(s, ph)
+    for (i, r), (_, g) in zip(s.iterrows(), got.iterrows()):
+        days = ph[(ph.plot_uid == r.plot_uid) & (ph.das <= r.issue_das)]
+        if len(days) == 0:
+            assert np.isnan(g.ph_age)
+            continue
+        last = days.sort_values("das").iloc[-1]
+        assert g.ph_age == r.issue_das - last.das >= 0
+        assert np.allclose(g[PF.PC].values.astype(float), last[PF.PC].values.astype(float))
+    raw = PF._asof(pd.DataFrame({"plot_uid": plots.plot_uid.values, "cut": 150}), "cut", ph, PF.PC)
+    assert (raw.ph_das.dropna() <= 150).all()
+
+
+def test_photo_pca_ignores_test_plots(data):
+    import photo_feats as PF
+    plots, *_ = data
+    meta, X = _fake_photos(plots)
+    train = plots.plot_uid[plots.split == "train"]
+    a = PF.photo_pcs(meta, X, plots, train)
+    keep = meta.plot_uid.isin(set(plots.plot_uid[plots.split.isin(["train", "validation"])])).values
+    b = PF.photo_pcs(meta[keep], X[keep], plots, train)
+    m = a.merge(b, on=["plot_uid", "das"], suffixes=("_a", "_b"))
+    assert len(m) == len(b)
+    assert np.allclose(m[[c + "_a" for c in PF.PC]].values, m[[c + "_b" for c in PF.PC]].values, atol=1e-4)
+
+
+def test_week3_units_hold_out_correctly():
+    import run_week3 as W3
+    plots, _, _ = load_derived()
+    U = W3.units(plots)
+    assert len(U) == 42
+    for outer, inner in U:
+        train, years, pred = W3.unit_plots(plots, outer, inner)
+        P = plots.set_index("plot_uid")
+        tr_years = set(P.loc[train, "year"])
+        assert not (set(train) & pred)
+        if outer != "official":
+            assert outer not in tr_years and (inner is not None or set(P.loc[list(pred), "year"]) == {outer})
+        if inner is not None:
+            assert inner not in tr_years and set(P.loc[list(pred), "year"]) == {inner}
+            assert outer != inner and (outer == "official" or outer not in set(P.loc[list(pred), "year"]))
+        if outer == "official":
+            assert set(P.loc[train, "split"]) == {"train"}
+
+
+def test_conformal_quantile():
+    import ranges as RG
+    r = np.arange(1, 11, dtype=float)  # n = 10
+    assert RG.conformal_q(r, 0.8) == 9.0  # ceil(11 * 0.8) = 9th smallest
+    assert RG.conformal_q(r, 0.9) == 10.0 and RG.conformal_q(r[:5], 0.9) == np.inf
+    cal = pd.DataFrame({"g": 1, "year": [1] * 10 + [2] * 10, "res": np.r_[r, r * 2]})
+    q = RG.half_widths(cal, ["g"], 0.8)
+    assert q.q_worst.iloc[0] == 18.0 and q.q_pooled.iloc[0] == RG.conformal_q(np.r_[r, r * 2], 0.8)
