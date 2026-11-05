@@ -1,0 +1,9 @@
+data/
+outputs/*
+!outputs/.gitkeep
+checkpoints/
+.venv/
+__pycache__/
+*.pyc
+*.out
+*.err
