@@ -237,3 +237,11 @@ def test_weighted_spearman_matches_scipy():
     for k in range(5):
         rep = np.repeat(np.arange(60), W[k].astype(int))
         assert np.isclose(got[k], spearmanr(x[rep], t[rep]).statistic)
+
+
+def test_d_gbm_handles_feature_missing_in_all_training_rows():
+    rng = np.random.default_rng(0)
+    X = np.c_[rng.normal(size=(200, 2)), np.full(200, np.nan)]
+    Z = np.c_[rng.normal(size=(20, 2)), rng.normal(size=20)]  # present at prediction time, absent in training
+    p = FD._fit("gbm", dict(max_leaf_nodes=7, max_iter=20), X, rng.normal(size=200))(Z)
+    assert p.shape == (20,) and np.isfinite(p).all()

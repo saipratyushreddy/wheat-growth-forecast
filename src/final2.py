@@ -84,8 +84,9 @@ def _fit(kind, cfg, X, y):
         sc = StandardScaler().fit(X)
         m = Ridge(**cfg).fit(sc.transform(X), y)
         return lambda Z: m.predict(sc.transform(Z))
-    m = HistGradientBoostingRegressor(**GBM_FIXED, **cfg).fit(X, y)
-    return m.predict
+    keep = ~np.isnan(X).all(0)  # a feature with no value in any training row carries nothing (e.g. height before day
+    m = HistGradientBoostingRegressor(**GBM_FIXED, **cfg).fit(X[:, keep], y)  # 120 exists only in 2017 and 2019)
+    return lambda Z: m.predict(Z[:, keep])
 
 
 def design_matrix(feat, kind):

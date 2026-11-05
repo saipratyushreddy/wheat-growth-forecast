@@ -277,3 +277,14 @@ These settle points the design left open. None was prompted by a result.
      - height 2.9 and 2.2 cm vs N3 4.7.
    - Validation shares its years with training, so this is the year-lookup optimism this design avoids selecting on.
    - It was not used for any choice and is recorded here only because it was seen.
+9. **Fix after a crash in tuning, on Swan.**
+   - What happened: the tuning fold that holds out 2017 crashed in D-gbm.
+   - Cause: at cutoff day 120, height has been measured only in 2017 and 2019. Tuning never trains on 2019, so with 2017
+     held out the two height features are missing in every training row, and the tree model cannot be fit on an
+     all-missing column.
+   - Fix: D-gbm now drops any feature that is missing in all training rows. Such a feature carries no information, and
+     D-lin already sees it as a constant 0.
+   - Effect on the other folds: they all trained on 2017, so their tuning scores are unchanged, and only the 2017 fold
+     is rerun.
+   - This was prompted by the crash, not by any score. Tuning scores were visible in the logs, as tuning scores are
+     meant to be.
