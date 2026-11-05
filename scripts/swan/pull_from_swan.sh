@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# From the laptop: copy Swan's week-2 results (outputs/week2, including SLURM logs) back with ONE login.
+# From the laptop: copy Swan's week-2 results (not in git) (outputs/week2, including SLURM logs) back with ONE login.
 #   scripts/swan/pull_from_swan.sh                 # all of outputs/week2
 #   scripts/swan/pull_from_swan.sh outputs/week2/settings.json 'outputs/week2/slurm/*'
 set -euo pipefail

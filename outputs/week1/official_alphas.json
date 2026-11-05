@@ -1,0 +1,31 @@
+{
+ "near": {
+  "canopy_cover_h7": 100,
+  "canopy_cover_h14": 0.1,
+  "canopy_cover_h28": 100,
+  "height_h7": 10,
+  "height_h14": 100,
+  "height_h28": 0.1
+ },
+ "final": {
+  "heading_das_markers": 1000.0,
+  "heading_das_c120": 100,
+  "heading_das_c150": 1000,
+  "heading_das_c180": 10,
+  "height_final_markers": 1000.0,
+  "height_final_c120": 100,
+  "height_final_c150": 100,
+  "height_final_c180": 0.1,
+  "height_final_c210": 100,
+  "yield_adjusted_markers": 100000.0,
+  "yield_adjusted_c120": 1000,
+  "yield_adjusted_c150": 1000,
+  "yield_adjusted_c180": 1000,
+  "yield_adjusted_c210": 1000,
+  "yield_markers": 100000.0,
+  "yield_c120": 1000,
+  "yield_c150": 1000,
+  "yield_c180": 1000,
+  "yield_c210": 1000
+ }
+}

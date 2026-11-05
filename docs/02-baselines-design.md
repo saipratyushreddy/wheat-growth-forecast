@@ -156,7 +156,7 @@ are also reported as **within-year Spearman rank correlation**, the breeding-rel
 ## Results (2026-11-05)
 
 **How the runs were done:**
-- The official test splits were scored once (`outputs/week1/official_test_*.csv`), after commit f86fb02.
+- The official test splits were scored once (`outputs/week1/official_test_*.csv`), after commit dcdb024.
 - Leave-one-year-out followed, with the ridge strengths chosen on validation (`outputs/week1/loyo_*.csv`).
 - Errors are MAE. 95% intervals resample varieties.
 

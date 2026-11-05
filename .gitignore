@@ -7,3 +7,6 @@ __pycache__/
 *.pyc
 *.out
 *.err
+!outputs/week1/
+outputs/week1/*
+!outputs/week1/official_alphas.json

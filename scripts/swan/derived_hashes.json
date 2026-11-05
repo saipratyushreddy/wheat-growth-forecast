@@ -1,0 +1,82 @@
+{
+ "plots": {
+  "rows": 4058,
+  "cols": [
+   "genotype_id",
+   "heading",
+   "heading_das",
+   "height_final",
+   "plot_uid",
+   "protein",
+   "range",
+   "row",
+   "sowing_date",
+   "split",
+   "year",
+   "yield",
+   "yield_adjusted"
+  ],
+  "hash": "d0bdc28eed0d4b39"
+ },
+ "series": {
+  "rows": 366425,
+  "cols": [
+   "das",
+   "date",
+   "gdd",
+   "plot_uid",
+   "trait",
+   "value",
+   "year"
+  ],
+  "hash": "04053f8bcbceb4c6"
+ },
+ "weather": {
+  "rows": 2191,
+  "cols": [
+   "date",
+   "tmean",
+   "year"
+  ],
+  "hash": "7c91545b00c4f324"
+ },
+ "weather2": {
+  "rows": 2191,
+  "cols": [
+   "date",
+   "hum",
+   "irr",
+   "precip",
+   "tmean",
+   "year"
+  ],
+  "hash": "5da840696e0b6e05"
+ },
+ "near_samples": {
+  "rows": 649991,
+  "cols": [
+   "genotype_id",
+   "h",
+   "issue_das",
+   "issue_date",
+   "issue_gdd",
+   "issue_sday",
+   "last",
+   "n_hist",
+   "phase",
+   "plot_uid",
+   "slope14",
+   "split",
+   "target",
+   "target_das",
+   "target_date",
+   "target_gdd_true",
+   "target_sday",
+   "trait",
+   "v14",
+   "v7",
+   "year"
+  ],
+  "hash": "de190ed144e118a0"
+ }
+}
