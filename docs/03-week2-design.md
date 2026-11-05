@@ -327,3 +327,104 @@ changed because of it.
 - **The validation errors are not a result.** Validation plots share their years with training, so the learned models'
   much lower validation error (for example, canopy cover +7 d: G 3.6 vs N3 6.1 points) may come from same-season
   information. That is the reason this design selects on held-out years. The headline is leave-one-year-out.
+
+## Results (2026-11-05)
+
+**How the runs were done:**
+- On Swan, with the settings above frozen.
+- The official test splits were scored once (`outputs/week2/official_test_*.csv`, SLURM job 18824359).
+- Then leave-one-year-out (`outputs/week2/loyo_*.csv`).
+- The week-1 baselines were recomputed in the same fits, so every comparison is paired. N3's leave-one-year-out errors
+  equal week 1's.
+
+**Reading the tables:**
+- Errors are MAE. Intervals are 95% and resample varieties.
+- "Mean of years" averages the six held-out years' MAE, as in week 1.
+- Paired differences pool all plots of the six years.
+- The variety bootstrap does not capture year-to-year variation. The year count is the year-level check.
+
+### Near-future growth
+
+Leave-one-year-out (headline). The difference and year count are for E against N3; the last column applies the success
+rule to every model.
+
+| Forecast | N3 | G | S | E | E - N3, pooled [95%] | Years E < N3 | Models that beat the bar |
+|---|---|---|---|---|---|---|---|
+| Canopy cover +7 d (points) | 6.12 | 6.23 | 6.18 | 6.01 | -0.18 [-0.22, -0.14] | 5 of 6 | E |
+| Canopy cover +14 d | 7.58 | 7.31 | 7.60 | 7.15 | -0.75 [-0.82, -0.69] | 4 | E, G, G+W, N5 |
+| Canopy cover +28 d | 9.89 | 9.21 | 10.21 | 9.30 | -1.17 [-1.27, -1.07] | 3 | G, G+W |
+| Height +7 d (cm) | 2.99 | 3.03 | 3.11 | 2.96 | -0.09 [-0.10, -0.08] | 4 | E |
+| Height +14 d | 4.84 | 4.53 | 5.00 | 4.59 | -0.30 [-0.33, -0.27] | 5 | E, G, N5 |
+| Height +28 d | 7.47 | 7.38 | 7.53 | 7.20 | -0.59 [-0.68, -0.50] | 3 | none |
+
+**The learned models beat N3, but only by a little.**
+- Under the success rule, some learned model beats N3 for 5 of the 6 forecasts.
+- The gain is at most about 10%: canopy cover +28 d, 9.9 to 9.2 points.
+- The gains are concentrated after day 150 (spring and heading to ripening). For example, canopy cover +28 d from
+  heading on: N3 15.1, E 13.1 points.
+- No model wins in every year. In 2016, G and E are worse than N3 at every horizon.
+- At 14 days the week-1 linear model N5 also passes the rule, so part of the gain needs no learning beyond a linear
+  fit.
+
+**Recent weather adds nothing reliable.** G+W is better than G only for canopy cover +28 d pooled (9.75 vs 9.85), and
+not in the mean of years.
+
+**The sequence model alone never beats the bar.** It helps only inside the ensemble E.
+
+**In the official unseen year (2019, `test_environment`), the learned models lose at 28 days:**
+- G vs N3: canopy cover +1.1 points, height +1.4 cm.
+- E vs N3: canopy cover +1.2 points, height +0.7 cm.
+- At 7-14 days, E roughly ties N3 (canopy cover +14 d: -0.18 [-0.34, -0.02]).
+
+**In known seasons the same models look far better.**
+- On `test_plot` and `test_genotype`, G roughly halves N3's error. For example, height +14 d on `test_plot`: N3 4.54,
+  G 1.82 cm.
+- These splits share their seasons with training. The contrast with leave-one-year-out shows that most of a learned
+  model's apparent skill on them is knowledge of how that season went, which a real forecast does not have. It does not
+  carry over to a new year.
+
+### End of season
+
+**Ranking (within-year Spearman, genotyped varieties):** no target passes the success rule.
+
+| Target | Cutoff | F1 / F2 (LOYO) | D (LOYO) | D - F2, LOYO [95%] | F2 / D (`test_genotype`) | D - F2, `test_genotype` [95%] |
+|---|---|---|---|---|---|---|
+| Heading | 180 | 0.815 / 0.817 | 0.816 | -0.001 [-0.016, +0.014] | 0.479 / 0.572 | +0.093 [-0.037, +0.239] |
+| Final height | 180 | 0.913 / 0.914 | 0.922 | +0.008 [+0.002, +0.020] | 0.793 / 0.753 | -0.040 [-0.114, +0.068] |
+| Final height | 210 | 0.913 / 0.914 | 0.933 | +0.019 [+0.010, +0.039] | 0.793 / 0.834 | +0.041 [-0.022, +0.136] |
+| Adjusted yield | 210 | 0.249 / 0.230 | 0.218 | -0.030 vs F1 [-0.080, +0.025] | 0.290 / 0.278 | -0.012 [-0.162, +0.141] |
+
+- **Final height:** measurements up to days 180-210 improve the ranking slightly in unseen years. Over all plots,
+  including varieties without markers, the gain at day 210 is large: D 0.856 vs F1 0.739 (+0.117 [+0.100, +0.137]).
+  For new varieties (`test_genotype`) the intervals include 0.
+- **Heading:** D ties the variety baselines in unseen years. For new varieties it is higher but not significantly.
+- **Yield:** D is worse than the variety history F1 at every cutoff (by 0.03-0.09). This is a negative result: in-season
+  canopy and height do not help rank yield.
+
+**Level of heading (L1, degree days):**
+- **The rule is met at cutoffs 150 and 180, not at 120.** L1 has lower heading MAE than F0 in 4 of 6 years at 150 and
+  180, and in 3 of 6 at 120.
+- **Pooled, L1 + D is worse than F0 at every cutoff** (10.1-11.2 vs 9.7 days). It wins clearly in 2019 (5.7 vs 10.0
+  days at cutoff 180) and 2021, but loses badly in 2016 and 2018 (2018: 12.5 vs 4.6 days).
+- **The mean over years is a tie** at cutoff 180: 9.4 vs 9.5.
+- A warm or cold season so far moves heading in the right direction in some years. A single degree-day threshold is
+  too crude to rely on.
+
+**Level of final height:**
+- D does not forecast the level by design, and L0 + D (7.3-8.4 cm) is better than F0 (10.0 cm) only through D.
+- The week-1 in-season linear model F3 has the lowest final-height MAE at cutoffs 120-180 (5.7-6.2 cm).
+- So for final height, the season's measurements carry level information that transfers to a new year. This
+  decomposition discards it.
+
+### What this means
+
+1. **Near future:**
+   - In a new year, learning on top of N3 gains up to about 10%, mainly late in the season.
+   - E is the best single choice.
+   - The gain is not reliable year by year, and is negative in the official unseen year at 28 days.
+   - Most of the skill that learned models show in known seasons is season information.
+2. **End of season:** variety history and markers still carry the ranking. Measurements add only for final height late
+   in the season, and nothing for yield.
+3. **Plan fallback:** the plan's fallback ("if the week-2 model does not beat the baselines, week 3 starts with
+   understanding why") applies in part. Week 3 should first look at where the learned models lose: 2016, and 2019 at
+   28 days.
