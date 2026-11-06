@@ -193,6 +193,15 @@ years is within 3 points of the level **and** no year is more than 10 points bel
    - The "1,872 same-day photos" above were these duplicates. There are no two different photos of a plot on the same
      day, so the same-day averaging never applies.
 
+8. **Validation sanity check (2026-11-06, bugs only; nothing changed after it).**
+   - N3, G, L0+D, L1 and L1+D on validation equal the week-2 official fit's predictions exactly. S and E differ by
+     at most 0.017 and 0.009 (fractions), which is S's known nondeterminism (clarification 10 of docs/03).
+   - Photo sanity: the 32 PCs predict 2019's same-day canopy cover with R² 0.67 (MAE 6.9 points), so the features
+     and their dates line up.
+   - The range step was run once on validation plots with the five official inner refits. It gave no missing or
+     infinite half-widths and no gaps.
+   - The validation numbers for the photo models were seen. They are not results, and no setting was changed.
+
 ## Part A results (2026-11-05)
 
 From `outputs/week3/partA*.csv`, built from week-2 leave-one-year-out predictions only.
