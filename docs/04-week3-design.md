@@ -183,6 +183,15 @@ years is within 3 points of the level **and** no year is more than 10 points bel
    - leave-one-year-out scoring refuses to run before the test.
 6. **Code check with stand-in features:** the full pipeline (units, ranges, comparisons) was run on the laptop with
    random stand-in photo features and tiny settings. It produced no gaps in any method. No number from it is a result.
+7. **Duplicate photo listings (2026-11-06, found when the photo job failed, before any fit).**
+   - The tables list 1,843 photo files twice or three times under the same plot: 1,872 extra rows, 153,022 rows for
+     151,150 files.
+   - In the job, two download threads fetched the same file and one deleted it before the other read it, so 21 of 48
+     shards stopped with `FileNotFoundError`.
+   - Each file is now kept once. The shard of every file is unchanged. Shards that finished before the fix hold the
+     repeated rows, which are dropped at the merge.
+   - The "1,872 same-day photos" above were these duplicates. There are no two different photos of a plot on the same
+     day, so the same-day averaging never applies.
 
 ## Part A results (2026-11-05)
 

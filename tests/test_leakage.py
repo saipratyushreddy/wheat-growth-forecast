@@ -276,7 +276,7 @@ def test_photo_index_covers_tables():
         pytest.skip("photo index not built")
     idx = pd.read_parquet(PH.INDEX)
     plots, _, _ = load_derived()
-    assert len(idx) == 153022 and set(idx.plot_uid) == set(plots.plot_uid)
+    assert len(idx) == 151150 and idx.path.is_unique and set(idx.plot_uid) == set(plots.plot_uid)
     assert idx.groupby("plot_uid").shard.nunique().max() == 1 and idx.shard.nunique() == PH.N_SHARDS
 
 

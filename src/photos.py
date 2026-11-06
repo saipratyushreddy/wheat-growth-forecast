@@ -62,7 +62,13 @@ def build_index(root="data/fip1"):
     start = per.cumsum() - per
     shard_of = np.minimum((start / len(idx) * N_SHARDS).astype(int), N_SHARDS - 1)
     idx["shard"] = idx.plot_uid.map(shard_of).astype(int)
-    return idx
+    return dedupe(idx)
+
+
+def dedupe(idx):
+    """The tables list 1,843 photos twice (or three times) under the same plot: 1,872 extra rows. Keep each file once.
+    Done after the shard assignment, so shards are the same as those of the first index."""
+    return idx.drop_duplicates("path").reset_index(drop=True)
 
 
 # ---------------------------------------------------------------- features
@@ -168,9 +174,12 @@ def merge(idx):
     missing = [k for k in range(N_SHARDS) if not os.path.exists(f"{OUT}/shards/features_{k:02d}.parquet")]
     if missing:
         raise SystemExit(f"shards not done: {missing}")
-    feat = pd.concat([pd.read_parquet(f"{OUT}/shards/features_{k:02d}.parquet") for k in range(N_SHARDS)])
-    th = pd.concat([pd.read_parquet(f"{OUT}/shards/thumbs_{k:02d}.parquet") for k in range(N_SHARDS)])
-    assert len(feat) == len(idx) and set(feat.path) == set(idx.path), "features do not cover the index"
+    # shards finished before the de-duplication hold repeated rows of the same file: keep each file once
+    feat = pd.concat([pd.read_parquet(f"{OUT}/shards/features_{k:02d}.parquet") for k in range(N_SHARDS)]
+                     ).drop_duplicates("path")
+    th = pd.concat([pd.read_parquet(f"{OUT}/shards/thumbs_{k:02d}.parquet") for k in range(N_SHARDS)]
+                   ).drop_duplicates("path")
+    assert len(feat) == len(idx) == len(th) and set(feat.path) == set(idx.path), "features do not cover the index"
     for y, g in feat.groupby("year"):
         g.to_parquet(f"{OUT}/features_{y}.parquet", index=False)
         th[th.path.isin(set(g.path))].to_parquet(f"{OUT}/thumbs_{y}.parquet", index=False)
@@ -197,7 +206,7 @@ if __name__ == "__main__":
         print(len(idx), "photos,", idx.plot_uid.nunique(), "plot-years,", N_SHARDS, "shards:",
               idx.groupby("shard").size().describe()[["min", "max"]].to_dict())
     else:
-        idx = pd.read_parquet(INDEX)
+        idx = dedupe(pd.read_parquet(INDEX))  # also covers an index built before dedupe() existed
         if a.step == "shard":
             if a.k is None:
                 sys.exit("give the shard number")
