@@ -35,10 +35,12 @@ def _gdd_at(plots, weather):
     return g.set_index(["year", "das"]).gdd
 
 
-def near_features(samples, series, weather, w2, plots, markers, train_plots, train_years, alphas_w1):
-    """Returns the samples with baselines N0-N5, the residual target `res` (target - N3) and all week-2 inputs."""
+def history_features(samples, series, weather, plots, train_plots, train_years, alphas_near, traits=N.TRAITS,
+                     other=True):
+    """Baselines N0-N5, the residual target `res` (target - N3), and the measurement-history and timing inputs.
+    Shared by wheat (near_features) and soybean (week 4: canopy cover only, other=False)."""
     train_plots = set(train_plots)
-    pred, _ = N.fit_predict(samples, series, weather, train_plots, [], train_years, alphas_w1["near"])
+    pred, _ = N.fit_predict(samples, series, weather, train_plots, [], train_years, alphas_near)
     pred = pred.copy()
     pred["res"] = pred.target - pred.N3
     pred["a"] = pred["last"] - pred.n2_issue
@@ -46,7 +48,7 @@ def near_features(samples, series, weather, w2, plots, markers, train_plots, tra
     pred["days_to_target"] = pred.target_das - pred.issue_das
     gat = _gdd_at(plots, weather)
     tr_series = series[series.plot_uid.isin(train_plots)]
-    curves = {t: Curve(tr_series[tr_series.trait == t], "gdd", 50) for t in N.TRAITS}
+    curves = {t: Curve(tr_series[tr_series.trait == t], "gdd", 50) for t in traits}
 
     for trait, idx in pred.groupby("trait").groups.items():
         c = curves[trait]
@@ -57,21 +59,30 @@ def near_features(samples, series, weather, w2, plots, markers, train_plots, tra
     pred["aslope14"] = (pred.a - pred.a14) / 14.0
 
     # days since the previous measurement of the same trait (n_hist counts measurements up to the issue date)
-    s = series[series.trait.isin(N.TRAITS)].sort_values(["plot_uid", "trait", "das"])
+    s = series[series.trait.isin(traits)].sort_values(["plot_uid", "trait", "das"])
     s = s.assign(pos=s.groupby(["plot_uid", "trait"]).cumcount())
     prev = s.set_index(["plot_uid", "trait", "pos"]).das
     pd_prev = prev.reindex(pd.MultiIndex.from_arrays([pred.plot_uid, pred.trait, pred.n_hist - 2])).values
     pred["dt_prev"] = pred.issue_das.values - pd_prev
 
     # the other trait's latest anomaly on or before the issue date
+    if not other:
+        return pred
     pred["o_a"], pred["o_age"] = np.nan, np.nan
-    for trait, other in OTHER.items():
+    for trait, oth in OTHER.items():
         q = pred[pred.trait == trait][["plot_uid", "issue_das"]].reset_index().sort_values("issue_das")
-        o = s[s.trait == other][["plot_uid", "das", "gdd", "value"]].sort_values("das")
-        o = o.assign(oa=o.value.astype(float) - curves[other](o.gdd.values.astype(float)))
+        o = s[s.trait == oth][["plot_uid", "das", "gdd", "value"]].sort_values("das")
+        o = o.assign(oa=o.value.astype(float) - curves[oth](o.gdd.values.astype(float)))
         m = pd.merge_asof(q, o, left_on="issue_das", right_on="das", by="plot_uid", direction="backward")
         pred.loc[m["index"].values, "o_a"] = m.oa.values
         pred.loc[m["index"].values, "o_age"] = (m.issue_das - m.das).values
+    return pred
+
+
+def near_features(samples, series, weather, w2, plots, markers, train_plots, train_years, alphas_w1):
+    """Returns the samples with baselines N0-N5, the residual target `res` (target - N3) and all week-2 inputs."""
+    pred = history_features(samples, series, weather, plots, train_plots, train_years, alphas_w1["near"])
+    train_plots = set(train_plots)
 
     # genetics: variety history from other years' training plots; markers fit on other years
     tr = pred[pred.plot_uid.isin(train_plots)]

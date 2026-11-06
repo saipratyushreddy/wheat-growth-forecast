@@ -169,3 +169,24 @@ Ties go to the candidate nearest in days after sowing, then by photo path.
   3. retrieval (once);
   4. figures;
   5. report.
+
+## Clarifications made while implementing, before any week-4 result
+
+1. **One day without temperature.** 6 May 2020 has no hourly temperature in the soybean tables, and the wheat tables
+   have no 2020 season. Gaps of up to 2 days are filled by interpolating between the neighbouring days; this is the
+   only one.
+2. **Within-field forecasts are clipped to [0, 1],** like every other canopy-cover forecast. The field-day groups are
+   held-out season × horizon × issue day; all plots of a season share the sowing date.
+3. **R-var's window:** it uses the same candidates as the other methods (training years, within 7 days after sowing of
+   the target day).
+4. **Shared code.** Wheat's measurement-history inputs were moved into `near2.history_features`, used by wheat and
+   soybean. On 500 wheat plots, wheat's features are identical to before the change. The season-day count and the
+   sequence model's genetics inputs were made settable; the wheat defaults are unchanged.
+5. **Code checks with stand-in data, not results.**
+   - Soybean: each season's canopy-cover curves were shuffled between its plots, and S trained for 2 epochs. The
+     pipeline ran with no missing predictions.
+   - Retrieval: random stand-in photo features on the real photo list and week-3 predictions. 8,113 queries, no
+     missing values, no candidate from a query's own year, no "today" photo after the issue date. 28% of R-var queries
+     fall back to R-N3 (no photo of the same variety in the window).
+6. **The soybean tables built on Swan are checked against the laptop's** (content hashes in
+   `scripts/swan/derived_soy_hashes.json`), as for wheat.

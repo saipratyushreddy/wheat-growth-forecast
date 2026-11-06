@@ -41,11 +41,13 @@ class Net(nn.Module):
 class SeqData:
     """Per plot-year padded step tensors, static genetics, and the samples (queries) that point into them."""
 
-    def __init__(self, feat, series, train_plots):
+    def __init__(self, feat, series, train_plots, static=STATIC, traits=N.TRAITS, missing_col="var_dev_hf"):
+        """static, traits, missing_col: wheat by default; soybean (week 4) passes its own genetics columns and
+        canopy cover only."""
         train_plots = set(train_plots)
         tr = series[series.plot_uid.isin(train_plots)]
-        curves = {t: Curve(tr[tr.trait == t], "gdd", 50) for t in N.TRAITS}
-        s = series[series.trait.isin(N.TRAITS) & series.plot_uid.isin(set(feat.plot_uid))].copy()
+        curves = {t: Curve(tr[tr.trait == t], "gdd", 50) for t in traits}
+        s = series[series.trait.isin(traits) & series.plot_uid.isin(set(feat.plot_uid))].copy()
         s["anom"] = np.nan
         for t, c in curves.items():
             m = s.trait == t
@@ -70,12 +72,13 @@ class SeqData:
         self.X, self.D = torch.from_numpy(X), D
 
         # static genetics per plot: standardised on training plots, missing -> 0 with flags
-        per = feat.groupby("plot_uid")[STATIC + ["genotyped"]].first().reindex(self.uids)
+        static = list(static)
+        per = feat.groupby("plot_uid")[static + ["genotyped"]].first().reindex(self.uids)
         trm = per.index.isin(train_plots)
-        mu, sd = per.loc[trm, STATIC].mean(), per.loc[trm, STATIC].std().replace(0, 1)
-        st = ((per[STATIC] - mu) / sd).fillna(0.0)
+        mu, sd = per.loc[trm, static].mean(), per.loc[trm, static].std().replace(0, 1)
+        st = ((per[static] - mu) / sd).fillna(0.0)
         st["genotyped"] = per.genotyped.values
-        st["vdev_missing"] = per.var_dev_hf.isna().astype(float).values
+        st["vdev_missing"] = per[missing_col].isna().astype(float).values
         self.static = torch.from_numpy(st.values.astype(np.float32))
 
         # queries

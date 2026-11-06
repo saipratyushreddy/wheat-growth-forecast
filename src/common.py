@@ -2,6 +2,7 @@
 Shared pieces for the week-1 baselines (docs/02-baselines-design.md): derived tables, climatological future degree days,
 equal-weight-per-year average curves, markers, and the variety-resampling bootstrap.
 """
+import contextlib
 import glob
 import os
 
@@ -20,9 +21,24 @@ def load_derived(root=DERIVED):
     return plots, series, weather
 
 
+# Start of the season-day count: wheat (default) counts from 1 September before harvest; soybean (week 4) from 1 January
+# of the sowing year, set only inside `with season_start(1, 0):`.
+_SEASON = {"month": 9, "offset": -1}
+
+
+@contextlib.contextmanager
+def season_start(month, offset):
+    old = dict(_SEASON)
+    _SEASON.update(month=month, offset=offset)
+    try:
+        yield
+    finally:
+        _SEASON.update(old)
+
+
 def season_day(dates, years):
-    """Day index within the weather year (0 = 1 September before harvest), comparable across years."""
-    start = pd.to_datetime([f"{int(y) - 1}-09-01" for y in np.asarray(years)])
+    """Day index within the weather year (wheat: 0 = 1 September before harvest), comparable across years."""
+    start = pd.to_datetime([f"{int(y) + _SEASON['offset']}-{_SEASON['month']:02d}-01" for y in np.asarray(years)])
     return np.asarray((pd.DatetimeIndex(np.asarray(dates)) - start).days)
 
 

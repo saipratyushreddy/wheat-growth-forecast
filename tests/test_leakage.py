@@ -349,3 +349,106 @@ def test_conformal_quantile():
     cal = pd.DataFrame({"g": 1, "year": [1] * 10 + [2] * 10, "res": np.r_[r, r * 2]})
     q = RG.half_widths(cal, ["g"], 0.8)
     assert q.q_worst.iloc[0] == 18.0 and q.q_pooled.iloc[0] == RG.conformal_q(np.r_[r, r * 2], 0.8)
+
+
+# ---------------------------------------------------------------- week 4 (docs/05-week4-design.md)
+
+@pytest.fixture(scope="module")
+def soydata():
+    import soy as SOY
+    if not os.path.exists(f"{SOY.OUT}/near_samples.parquet"):
+        pytest.skip("soybean tables not built (python src/soy.py build)")
+    return SOY.load()
+
+
+def test_soy_weather_by_calendar_date(soydata):
+    import soy as SOY
+    plots, series, weather, smp = soydata
+    # each season's weather is that calendar year, and the sowing day falls in it
+    assert (weather.date.dt.year == weather.year).all()
+    sow = plots.groupby("year").sowing_date.first()
+    assert all(((weather.year == y) & (weather.date == d)).any() for y, d in sow.items())
+    # the calendar uses the soybean tables where they cover a day (spot check: a day in the 2018 season)
+    cal = pd.read_parquet(f"{SOY.OUT}/site_weather.parquet")
+    assert cal.set_index("date").loc["2018-06-15", "source"] == "soybean"
+
+
+def test_soy_inputs_use_no_later_weather(soydata):
+    import json
+
+    import run_week4 as W
+    plots, series, weather, smp = soydata
+    alphas = json.load(open("outputs/week1/official_alphas.json"))["near"]
+    y = 2019
+    keep = set(plots.plot_uid[plots.year.isin([2017, 2018, y])])
+    p, s = plots[plots.plot_uid.isin(keep)], series[series.plot_uid.isin(keep)]
+    q = smp[smp.plot_uid.isin(keep)]
+    train = list(p.plot_uid[p.year != y])
+    cut = pd.Timestamp(f"{y}-07-01")
+    w2 = weather.copy()
+    w2.loc[(w2.year == y) & (w2.date > cut), "tmean"] += 10.0
+    a = W.soy_features(q, s, weather, p, train, [2017, 2018], alphas)
+    b = W.soy_features(q, s, w2, p, train, [2017, 2018], alphas)
+    m = (a.year == y) & (a.issue_date <= cut)
+    cols = ["N3", "res", "issue_gdd", "gdd_inc", "a", "a7", "a14", "rise"]
+    pd.testing.assert_frame_equal(a.loc[m, cols], b.loc[m, cols])
+
+
+def test_soy_variety_features_from_other_seasons(soydata):
+    import json
+
+    import run_week4 as W
+    plots, series, weather, smp = soydata
+    alphas = json.load(open("outputs/week1/official_alphas.json"))["near"]
+    keep = set(plots.plot_uid[plots.year.isin([2018, 2019, 2020])])
+    p, s, q = plots[plots.plot_uid.isin(keep)], series[series.plot_uid.isin(keep)], smp[smp.plot_uid.isin(keep)]
+    train = list(p.plot_uid[p.year != 2020])
+    a = W.soy_features(q, s, weather, p, train, [2018, 2019], alphas)
+    p2 = p.copy()
+    p2.loc[p2.year == 2019, "yield"] *= 3.0  # own-season yields of 2019 plots must not reach their variety features
+    b = W.soy_features(q, s, weather, p2, train, [2018, 2019], alphas)
+    m = a.year == 2019
+    assert np.allclose(a.loc[m, "var_dev_y"], b.loc[m, "var_dev_y"], equal_nan=True)
+    m = a.year == 2020  # the held-out season sees the training seasons only
+    p3 = p.copy()
+    p3.loc[p3.year == 2020, "yield"] = 0.0
+    c = W.soy_features(q, s, weather, p3, train, [2018, 2019], alphas)
+    assert np.allclose(a.loc[m, "var_dev_y"], c.loc[m, "var_dev_y"], equal_nan=True)
+
+
+def test_within_field_uses_no_targets():
+    import run_week4 as W
+    rng = np.random.default_rng(0)
+    n = 300
+    df = pd.DataFrame({"year": rng.choice([2016, 2017], n), "h": rng.choice([7, 28], n),
+                       "issue_das": rng.choice([40, 60], n), "N3": rng.uniform(0.2, 0.8, n),
+                       "E": rng.uniform(0.2, 0.8, n), "target": rng.uniform(0, 1, n)})
+    a = W.within(df, "E")
+    b = W.within(df.assign(target=rng.uniform(0, 1, n)), "E")
+    assert np.allclose(a, b)
+    # within each field-day group the mean correction to N3 is zero (before clipping)
+    g = (df.E - (df.E - df.N3).groupby([df.year, df.h, df.issue_das]).transform("mean")) - df.N3
+    assert np.allclose(g.groupby([df.year, df.h, df.issue_das]).mean(), 0, atol=1e-12)
+
+
+def test_retrieval_never_uses_own_year_or_later_photos():
+    import run_week4 as W
+    rng = np.random.default_rng(0)
+    rows = []
+    for y in [2016, 2017, 2018]:
+        for k in range(20):
+            for d in range(30, 200, 9):
+                rows.append((f"P{y}_{k}", y, k % 5, d, f"{y}/{k}/{d}"))
+    meta = pd.DataFrame(rows, columns=["plot_uid", "year", "genotype_id", "das", "path"])
+    meta["row"] = np.arange(len(meta))
+    cand = meta.assign(cover=rng.uniform(0, 1, len(meta)))
+    q = meta[meta.year == 2017].groupby("plot_uid").head(1)[["plot_uid", "year", "genotype_id"]].copy()
+    q["issue_das"], q["target_das"] = 102, 129
+    q["N3"], q["E+P"], q["target"] = 0.5, 0.6, 0.7
+    q["qid"] = np.arange(len(q))
+    r = W.retrieve(q, cand, meta[meta.year == 2017])
+    for k in ["R-var", "R-N3", "R-E+P", "R-oracle"]:
+        assert (meta.year.values[r[k].astype(int)] != 2017).all()
+    assert (meta.das.values[r["R-now"].astype(int)] <= 102).all()
+    assert (meta.year.values[r["R-now"].astype(int)] == 2017).all()
+    assert (np.abs(meta.das.values[r["future"].astype(int)] - 129) <= 3).all()
