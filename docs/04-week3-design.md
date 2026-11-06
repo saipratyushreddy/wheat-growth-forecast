@@ -234,3 +234,89 @@ From `outputs/week3/partA*.csv`, built from week-2 leave-one-year-out prediction
   - its average gain is smaller than E's for canopy cover at 14-28 days.
 - It was found by looking at these errors, so evaluating it on them is circular. It is recorded as a hypothesis for an
   independent test (FIP1SOY, week 4), and is not added to the week-3 models.
+
+## Results (2026-11-06)
+
+The official test was scored once (Swan job 18840639), then leave-one-year-out (18840640). Files in
+`outputs/week3/`: `test_*.csv` and `loyo_*.csv`. Errors are in canopy-cover points and cm, as before. The intervals are
+95%, resampling varieties.
+
+### Part B: do photos add?
+
+**Near future: photos add to canopy cover at every horizon, and to height at 7 days. They do not add to height at 14
+or 28 days.** Pooled leave-one-year-out, paired MAE difference (with photos minus without):
+
+| Forecast | G+P vs G | years better | E+P vs E | years better | Rule passed |
+|---|---|---|---|---|---|
+| canopy cover +7 d | -0.48 [-0.51, -0.45] | 6/6 | -0.22 [-0.23, -0.21] | 6/6 | both |
+| canopy cover +14 d | -0.51 [-0.55, -0.48] | 6/6 | -0.20 [-0.22, -0.19] | 6/6 | both |
+| canopy cover +28 d | -0.50 [-0.54, -0.46] | 5/6 | -0.23 [-0.25, -0.21] | 5/6 | both |
+| height +7 d | -0.09 [-0.09, -0.08] | 5/6 | -0.05 [-0.05, -0.04] | 5/6 | both |
+| height +14 d | +0.05 [+0.03, +0.07] | 3/6 | +0.03 [+0.02, +0.04] | 2/6 | neither |
+| height +28 d | +0.06 [+0.02, +0.09] | 3/6 | +0.03 [+0.01, +0.05] | 2/6 | neither |
+
+- **This is the opposite of the stated expectation.** Canopy cover is measured from these same photos, so we expected
+  little gain there. A likely reason: the photos also show colour and texture (yellowing, ear emergence), which signal
+  where cover is about to go, and the trait value alone does not.
+- **Against N3, E+P does not change the week-2 picture.** Pooled gains: canopy cover -0.40, -0.96, -1.40 (5, 5 and 3
+  of 6 years); height -0.14, -0.27, -0.57 (4, 4 and 3 of 6 years). At 28 days the learned models still win in only 3
+  of 6 years.
+- **On the official test, photos help only in the unseen year.**
+  - 2019 (test_environment): canopy cover G+P vs G -0.50, -0.63, -0.36 at 7, 14 and 28 days.
+  - Known seasons (test_plot): photos are worse for every forecast (+0.05 to +0.18). The same was seen on validation.
+    In a known season, G already has that season's information, and the photo inputs seem to add noise.
+- **Height at 14-28 days gets worse with photos** in the unseen year and in 3-4 of 6 held-out years.
+
+**End of season: photos do not pass the ranking rule for any target.**
+- The rule needs the within-year Spearman difference above 0 pooled **and** in test_genotype.
+- Pooled leave-one-year-out (all plots), D+P beats D for:
+  - yield at 150 and 210 days (+0.07 [+0.04, +0.10] and +0.14 [+0.11, +0.17]);
+  - yield adjusted at 150-210 days (+0.02 to +0.07);
+  - final height at 120 days (+0.02 [+0.01, +0.03]).
+- In test_genotype none of these intervals is above 0. For example, yield at 210 days: +0.07 [-0.04, +0.19].
+- Final height at 150-180 days is ranked worse with photos (pooled -0.01 and -0.03; test_genotype -0.12 and -0.13 at
+  120 and 150 days).
+- Heading: no difference.
+- **The yield signal is the most interesting negative result.** Late-season photos improve the pooled yield ranking
+  (0.15 to 0.29 at 210 days), and also in the 2019 splits. But the gain is not shown for new varieties, so it does not
+  pass.
+
+### Part C: prediction ranges
+
+**Near future: right on average, too narrow in the hard years.**
+- Pooled version, mean coverage over the six held-out years:
+  - 79-81% at the 80% level;
+  - 86-90% at the 90% level.
+- But 2016 (and 2017 for canopy cover at 28 days) is far below:
+  - canopy cover at 80%: 55-64% at worst;
+  - height at 80%: 50-69% at worst.
+- **Only height +7 d at 90% passes the calibration rule** (pooled: mean 88.6%, worst 80.4%).
+- **The worst-year version** is wider (by about 25-50%) and over-covers on average (87-95%). It still misses the rule
+  in 2016 and 2017 for most forecasts. It passes for height +7 d and +28 d at 90% (E), and height +7 d and +14 d at 90%
+  (E+P).
+- **Official unseen year (2019):** coverage is above the level (85-100%). 2019 is the easiest year, as in weeks 1-2.
+
+**End of season: not calibrated for any target, either version.**
+- The error of a level forecast in a new year is mostly one shift shared by all plots. So coverage is close to
+  all-or-nothing per year. Examples at 80%, pooled:
+  - heading (L0+D): 2017 covered 7-13%;
+  - final height (L0+D): 2016 covered 7-15%;
+  - heading with the degree-day level (L1+D): 2016 under 1% at 120 days.
+- With five training years, a quantile of past years' errors cannot reliably cover a sixth year's shift. An honest
+  end-of-season range for a new year has to be about as wide as the spread of yearly means, or come from another
+  source of information about the year (for example, the weather so far).
+- Yield is closest: mean 78-79% at 80%, but 2021 at 47-61%.
+- Ranges for D+P are reported here only for completeness, since D+P did not pass part B's rule.
+
+### What this means
+
+- **Photos are a real input for canopy-cover forecasts in new years.** About 0.5 points off G at every horizon, in 5-6
+  of 6 years. This is the first week-3 change that holds in most years. It does not fix the 28-day problem against N3.
+- **Photos add nothing for end-of-season ranking that holds for new varieties.** The late-season yield signal is a
+  lead for week 4, not a result.
+- **The ranges show the same problem as part A.** In a new year, most of the error is shared by the whole field. A
+  method calibrated on five past years covers that only on average. For a planner, the near-future ranges are usable
+  as "about right on average, can be badly too narrow in an unusual year". The end-of-season ranges are not usable as
+  stated.
+- **Wrapped models to carry forward:** E+P for canopy cover (it passes part B), E for height. The ranges stay labelled
+  as not calibrated, except height +7 d at 90%.
