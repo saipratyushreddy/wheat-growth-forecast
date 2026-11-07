@@ -36,11 +36,11 @@ def _gdd_at(plots, weather):
 
 
 def history_features(samples, series, weather, plots, train_plots, train_years, alphas_near, traits=N.TRAITS,
-                     other=True):
+                     other=True, future="clim"):
     """Baselines N0-N5, the residual target `res` (target - N3), and the measurement-history and timing inputs.
     Shared by wheat (near_features) and soybean (week 4: canopy cover only, other=False)."""
     train_plots = set(train_plots)
-    pred, _ = N.fit_predict(samples, series, weather, train_plots, [], train_years, alphas_near)
+    pred, _ = N.fit_predict(samples, series, weather, train_plots, [], train_years, alphas_near, future=future)
     pred = pred.copy()
     pred["res"] = pred.target - pred.N3
     pred["a"] = pred["last"] - pred.n2_issue
@@ -79,9 +79,9 @@ def history_features(samples, series, weather, plots, train_plots, train_years, 
     return pred
 
 
-def near_features(samples, series, weather, w2, plots, markers, train_plots, train_years, alphas_w1):
+def near_features(samples, series, weather, w2, plots, markers, train_plots, train_years, alphas_w1, future="clim"):
     """Returns the samples with baselines N0-N5, the residual target `res` (target - N3) and all week-2 inputs."""
-    pred = history_features(samples, series, weather, plots, train_plots, train_years, alphas_w1["near"])
+    pred = history_features(samples, series, weather, plots, train_plots, train_years, alphas_w1["near"], future=future)
     train_plots = set(train_plots)
 
     # genetics: variety history from other years' training plots; markers fit on other years

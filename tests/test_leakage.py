@@ -452,3 +452,25 @@ def test_retrieval_never_uses_own_year_or_later_photos():
     assert (meta.das.values[r["R-now"].astype(int)] <= 102).all()
     assert (meta.year.values[r["R-now"].astype(int)] == 2017).all()
     assert (np.abs(meta.das.values[r["future"].astype(int)] - 129) <= 3).all()
+
+
+# ---------------------------------------------------------------- week 5 (docs/07): the actual-weather switch
+
+def test_week5_switch_off_reproduces_week3_n3_and_switch_on_uses_actual_degree_days():
+    """future="clim" gives week 3's N3 for the 2016 fold exactly; future="true" sets target_gdd to the actual value."""
+    f = "outputs/week3/units/2016_none_near.parquet"
+    if not os.path.exists(f):
+        pytest.skip("week-3 units not here")
+    import run_week2 as R2
+    D = R2.Data()
+    train = list(D.plots.plot_uid[D.plots.year != 2016])
+    years = sorted(D.plots.year[D.plots.year != 2016].unique())
+    alphas = json.load(open("outputs/week1/official_alphas.json"))["near"]
+    clim, _ = N.fit_predict(D.samples, D.series, D.weather, train, [], years, alphas)
+    true, _ = N.fit_predict(D.samples, D.series, D.weather, train, [], years, alphas, future="true")
+    w3 = pd.read_parquet(f)
+    key = ["plot_uid", "trait", "h", "issue_das"]
+    m = w3.merge(clim[clim.year == 2016][key + ["N3"]], on=key, suffixes=("", "_now"))
+    assert len(m) == len(w3) and np.allclose(m.N3, m.N3_now, atol=1e-9)
+    assert np.allclose(true.target_gdd, true.target_gdd_true.astype(float))
+    assert not np.allclose(clim.target_gdd, true.target_gdd)  # the switch changes something

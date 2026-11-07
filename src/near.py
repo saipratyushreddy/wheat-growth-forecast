@@ -55,13 +55,18 @@ def _clip(trait, x):
     return np.clip(x, lo, hi)
 
 
-def fit_predict(samples, series, weather, train_plots, val_plots, train_years, alphas=None):
+def fit_predict(samples, series, weather, train_plots, val_plots, train_years, alphas=None, future="clim"):
     """Fit N0-N5 on train_plots; choose N5 ridge strength on val_plots unless `alphas` is given. Returns (pred, alphas).
-    `series` must carry genotype_id and year. Only rows of train_plots are used to fit anything."""
+    `series` must carry genotype_id and year. Only rows of train_plots are used to fit anything.
+    future="true" (week 5 upper bound only, docs/07): target degree days from the actual weather, not climatology."""
     train_plots, val_plots = set(train_plots), set(val_plots)
     clim = ClimTemp(weather, train_years)
     s = samples.copy()
     s["target_gdd"] = s.issue_gdd + clim.increment(s.issue_sday.values, s.target_sday.values)  # no future weather
+    if future == "true":
+        s["target_gdd"] = s.target_gdd_true.astype(float)  # breaks the input rule on purpose: an upper bound
+    else:
+        assert future == "clim"
     s["gdd_inc"] = s.target_gdd - s.issue_gdd
     tr_series = series[series.plot_uid.isin(train_plots)]
     chosen = {} if alphas is None else dict(alphas)

@@ -101,3 +101,17 @@ Reported without a rule: G-true vs G; L1-true; the soybean check.
   - `scripts/swan/w5_*.slurm`.
 - **Runs:** on Swan, once. Outputs go to `outputs/week5/`.
 - **Then:** the results go into this file, and one paragraph and a figure go into the report.
+
+## Clarifications made while implementing, before any week-5 result
+
+1. **Where the checks live.**
+   - The N3 check is a unit test: the 2016 fold reproduces week 3 exactly, and with the switch on the target degree
+     days equal the actual ones.
+   - The G check runs inside every wheat fold on Swan, against that fold's week-3 predictions; the fold stops if they
+     differ. The G check needs the week-3 fold files, which are on Swan.
+2. **Code check with stand-in data, not results.** Scoring ran on week-3 predictions with random noise standing in
+   for the "-true" columns.
+   - Heading: the level is one value per year and cutoff, since all plots of a year share the sowing date and the
+     weather. It is never the "not reached" fallback.
+3. **Heading has one level per year,** so its per-year interval is wide by construction. The year count is the useful
+   number.

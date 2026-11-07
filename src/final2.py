@@ -48,7 +48,7 @@ def inseason(plots, series, cutoff, curves):
     return f
 
 
-def heading_gdd_level(plots, gdd, weather, train_plots, train_years, cutoff):
+def heading_gdd_level(plots, gdd, weather, train_plots, train_years, cutoff, future="clim"):
     """L1: per plot, heading day (after sowing) at which degree days so far (actual, up to the cutoff) plus climatology
     after it reach the training years' mean degree days at heading (equal weight per year)."""
     P = plots.set_index("plot_uid")
@@ -65,6 +65,10 @@ def heading_gdd_level(plots, gdd, weather, train_plots, train_years, cutoff):
         s_cut = int(season_day([cdate], [y])[0])
         days = np.arange(1, 366 - s_cut)
         reach = g_cut + clim.increment(np.full(len(days), s_cut), s_cut + days)
+        if future == "true":  # week 5 upper bound only (docs/07): the actual degree days after the cutoff
+            gy = gdd[gdd.year == y].set_index("date").gdd.astype(float)
+            reach = gy.reindex(cdate + pd.to_timedelta(days, unit="D")).values
+            reach = np.where(np.isnan(reach), -np.inf, reach)
         k = np.argmax(reach >= target) if (reach >= target).any() else len(days) - 1
         out.loc[py.index] = cutoff + days[k]
     return out, target
