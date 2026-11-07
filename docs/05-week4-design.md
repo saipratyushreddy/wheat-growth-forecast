@@ -190,3 +190,107 @@ Ties go to the candidate nearest in days after sowing, then by photo path.
      fall back to R-N3 (no photo of the same variety in the window).
 6. **The soybean tables built on Swan are checked against the laptop's** (content hashes in
    `scripts/swan/derived_soy_hashes.json`), as for wheat.
+
+## Results (2026-11-06)
+
+Run once on Swan (jobs 18846003-18846007): the soybean tables matched the laptop's and all 26 tests passed. Each
+part was then scored once. Outputs are in `outputs/week4/`: `soy_near.csv`, `soy_pred.parquet`, `retrieval.csv`,
+`retrieval_queries.parquet` and `retrieval_examples.png`.
+
+### Part A: soybean (leave-one-season-out, 7 seasons, canopy cover)
+
+- **Data:** 662 plot-seasons and 75 varieties, giving 29,128 samples. The weather comes from the soybean tables on
+  2,307 days and from the wheat tables on 250 days. One day (6 May 2020) was interpolated.
+- **H1: partly.** It holds at 28 days only.
+
+MAE is in points of cover. d is the paired difference against the reference; its interval is 95%, resampling
+varieties. "Seasons" counts the seasons where d < 0, out of 7.
+
+| h | Comparison | MAE | Ref. MAE | d | 95% interval | Seasons | Rule |
+|---|---|---|---|---|---|---|---|
+| 7 | **E-w vs N3** | 9.28 | 9.30 | -0.02 | [-0.29, 0.26] | 6 | no |
+| 7 | E vs N3 | 9.97 | 9.30 | +0.66 | [0.28, 1.05] | 4 | |
+| 7 | G vs N3 | 10.23 | 9.30 | +0.93 | [0.59, 1.27] | 3 | |
+| 7 | G-w vs N3 | 9.28 | 9.30 | -0.02 | [-0.26, 0.24] | 6 | |
+| 7 | E-w vs E | 9.28 | 9.97 | -0.69 | [-1.17, -0.19] | 4 | |
+| 14 | **E-w vs N3** | 13.07 | 13.32 | -0.26 | [-0.54, 0.06] | 6 | no |
+| 14 | E vs N3 | 12.47 | 13.32 | -0.85 | [-1.24, -0.45] | 6 | |
+| 14 | G vs N3 | 12.64 | 13.32 | -0.68 | [-1.08, -0.30] | 6 | |
+| 14 | G-w vs N3 | 13.09 | 13.32 | -0.24 | [-0.49, 0.05] | 5 | |
+| 14 | E-w vs E | 13.07 | 12.47 | +0.59 | [0.07, 1.11] | 1 | |
+| 28 | **E-w vs N3** | 16.57 | 16.94 | -0.37 | [-0.59, -0.14] | 6 | **yes** |
+| 28 | E vs N3 | 14.17 | 16.94 | -2.77 | [-3.21, -2.36] | 6 | |
+| 28 | G vs N3 | 14.85 | 16.94 | -2.09 | [-2.59, -1.65] | 5 | |
+| 28 | G-w vs N3 | 16.56 | 16.94 | -0.38 | [-0.60, -0.16] | 7 | |
+| 28 | E-w vs E | 16.57 | 14.17 | +2.40 | [1.93, 2.88] | 2 | |
+
+The individual models' MAE (S alone: 10.52, 13.33 and 14.82 at 7, 14 and 28 days) is in `soy_pred.parquet`.
+
+**What happened.** On soybean, unlike wheat, most of the learned models' gain over N3 is the shared part, the
+field-wide shift.
+- **The plain models beat N3 at 14 and 28 days, in 6 of 7 seasons.** E's gain at 28 days is -2.8 points. This is much
+  larger than on wheat. A likely reason: N3's average curve fits soybean less well, because canopy closure depends on
+  more than degree days, so there is more shared error to correct.
+- **The within-field correction removes most of that gain.** At 14 and 28 days, E-w is worse than E.
+- **What it buys is safety.** E's and G's field-wide shift is sometimes badly wrong:
+  - In 2017, E moved the whole field about 10 points down, while the truth was 1-10 points above N3. E lost to N3 by
+    +6.1 points at 7 days and +4.5 at 14.
+  - In 2020 at 28 days, the shift had the wrong sign.
+  - E-w is never more than 0.5 points worse than N3 in any season and horizon. E is up to 6.1 worse.
+- **So the hypothesis is half right.** The learned field-wide shift is unreliable from one season to the next: wheat
+  2016/2017 (docs/04), soybean 2017. But on soybean it is right more often than wrong, so removing it costs accuracy on
+  average.
+
+The within-field correction is a safer model, not a better one. The wheat claim "the learned models lose on field-wide
+error" did not carry over as a general rule.
+
+The expectation stated before results ("E-w may be close to N3") was right for E-w. It was wrong for E, which did
+better than expected.
+
+### Part B: future-photo retrieval (wheat, leave-one-year-out)
+
+- **Queries:** 4,057 at 14 days and 4,056 at 28 days, about 710-790 per year and 250 in 2019, the year with fewest
+  photos.
+- **R-var** fell back to R-N3 for 28% of queries, as in the stand-in check.
+
+Distance is 1 - cosine on standardised DINOv2 features; lower is better. Intervals are 95%, resampling varieties.
+"Years" counts the years where d < 0, out of 6.
+
+| h | Comparison | Distance | Ref. distance | d | 95% interval | Years | Rule |
+|---|---|---|---|---|---|---|---|
+| 14 | **R-E+P vs R-now** | 0.565 | 0.429 | +0.135 | [0.127, 0.142] | 0 | no |
+| 14 | **R-E+P vs R-N3** | 0.565 | 0.570 | -0.006 | [-0.012, 0.001] | 5 | no |
+| 14 | R-N3 vs R-now | 0.570 | 0.429 | +0.141 | [0.133, 0.148] | 0 | |
+| 14 | R-var vs R-now | 0.591 | 0.429 | +0.161 | [0.152, 0.170] | 0 | |
+| 14 | R-oracle vs R-now | 0.555 | 0.429 | +0.125 | [0.118, 0.133] | 0 | |
+| 28 | **R-E+P vs R-now** | 0.582 | 0.627 | -0.044 | [-0.054, -0.035] | 5 | **yes** |
+| 28 | **R-E+P vs R-N3** | 0.582 | 0.585 | -0.003 | [-0.009, 0.004] | 4 | no |
+| 28 | R-N3 vs R-now | 0.585 | 0.627 | -0.042 | [-0.051, -0.033] | 5 | |
+| 28 | R-var vs R-now | 0.594 | 0.627 | -0.033 | [-0.044, -0.022] | 5 | |
+| 28 | R-oracle vs R-now | 0.561 | 0.627 | -0.066 | [-0.075, -0.056] | 5 | |
+
+**What this means.**
+- **At 14 days, today's photo of the same plot is the best picture of the future, by a wide margin.** Even the
+  ceiling, which matches the true future cover, is far behind it (0.555 vs 0.429). Over two weeks a plot's own look
+  dominates the photo features: its soil, stones, row pattern and lighting change less than its cover does.
+  Cover-matched photos from other plots cannot supply that.
+- **At 28 days, growth dominates and retrieving by forecast wins.** It wins in 5 of 6 years; the exception is 2016, where
+  today's photo is still the best at 28 days.
+- **A better forecast does not give a visibly better picture.** R-E+P and R-N3 differ by 0.003-0.006, with intervals
+  that include 0. This is as expected: their cover errors differ by about 1 point (7.3 vs 7.9 at 14 days, 9.5 vs 10.6
+  at 28 days, on these queries).
+- **The headroom from a perfect cover forecast is small.** R-oracle is only 0.02 better than R-E+P. Cover alone
+  describes little of what a plot will look like.
+- **Matching on variety is worse than matching on forecast cover** at both horizons.
+
+**Figure:** `outputs/week4/retrieval_examples.png`. It shows eight random 2019 queries at 28 days: today's photo,
+the R-E+P photo and the true photo. The retrieved photos match the stage of growth. They do not match the plot's own
+soil and lighting.
+
+### What week 4 adds
+
+- **The within-field correction replicates only partly on soybean.** It is a safer model, but not a more accurate
+  one on average.
+- **Soybean's plain learned models beat N3 at 14-28 days,** much more clearly than wheat's did.
+- **Forecast-based photo retrieval** is useful only at 28 days, and only because "it will look like today" breaks
+  down by then. A better trait forecast does not translate into a better picture.
