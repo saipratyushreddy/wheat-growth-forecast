@@ -115,3 +115,68 @@ Reported without a rule: G-true vs G; L1-true; the soybean check.
      weather. It is never the "not reached" fallback.
 3. **Heading has one level per year,** so its per-year interval is wide by construction. The year count is the useful
    number.
+
+## Results (2026-11-08)
+
+Run once on Swan (jobs 18851739-18851741). All 27 tests passed. In every wheat fold, N3 and G with the switch off
+reproduced week 3 exactly (largest difference 0.0). Outputs are in `outputs/week5/`: `near.csv`, `near_phase.csv`,
+`field_split.csv`, `heading.csv` and `soy.csv`.
+
+### The rule: not met at 28 days, so the decision is "do not fetch weather forecasts yet"
+
+N3-true vs N3, pooled over the six held-out years. The difference is in canopy-cover points or cm; "gain" is the
+difference relative to N3's MAE.
+
+| Forecast | N3 | N3-true | Difference [95%] | Gain | Years better | Rule |
+|---|---|---|---|---|---|---|
+| Canopy cover +14 d | 8.69 | 8.57 | -0.12 [-0.14, -0.09] | 1% | 3 of 6 | no |
+| Canopy cover +28 d | 10.96 | 10.36 | -0.60 [-0.66, -0.54] | 5% | 4 of 6 | no |
+| Height +14 d | 4.87 | 4.29 | -0.58 [-0.61, -0.55] | 12% | 5 of 6 | **yes** |
+| Height +28 d | 7.63 | 6.75 | -0.88 [-0.95, -0.82] | 12% | 4 of 6 | no (years) |
+
+The rule holds only for height at 14 days. Height at 28 days has the gain but is better in only 4 of 6 years: 2016
+(+0.62 cm) and 2019 (+0.02) are worse. By the rule fixed in advance, the shared shift is not mainly a temperature effect
+for the near-future forecasts, and the archived-forecast step is not taken on this evidence.
+
+### What else the run shows (reported without a rule)
+
+- **Temperature matters where expected and not elsewhere.**
+  - Height in spring, the stem-extension period: N3-true gains 16-24% (14 d: 5.84 to 4.42 cm; 28 d: 9.08 to 7.07).
+  - Canopy cover in autumn-winter: 10-22%.
+  - Canopy cover in spring and from heading on: about 0 (-3% to +2%).
+  - Senescence, ripening and canopy closure are not driven by degree days on our definition.
+- **Canopy cover in 2019 gets worse with the actual temperature** (+1.31 points at 28 days). Matching the temperature
+  does not match how cover develops in every year.
+- **Field-wide vs plot-specific:**
+  - The plot-specific error is unchanged by N3-true, as it should be.
+  - The field-wide part falls in most years and horizons. Canopy cover +28 d: 2017 12.8 to 8.7, 2016 8.7 to 6.8.
+  - It rises in some, for example 2019 3.0 to 4.7.
+  - So temperature explains part of the shared shift, in some years.
+- **A learned model uses the actual temperature better than N3 does.** G-true vs N3 at 28 days: canopy cover -2.0
+  points (-18%, 5 of 6 years), height -1.2 cm (-16%, 3 of 6). G-true vs G: -0.5 to -0.9 at every horizon for cover.
+- **Heading level: the clearest effect.** Heading day from the actual degree days (L1-true) vs the training mean (F0):
+  5.8 vs 9.7 days, better in 5 of 6 years. 2016 is the exception: 10.8 vs 10.1. Compared with L1 (average weather after
+  the cutoff), L1-true is better in all 6 years at every cutoff, by 4.4-5.5 days.
+  - So the year-to-year shift of heading, which no model in weeks 1-4 could forecast, is mostly a temperature effect.
+  - L1-true is the same at every cutoff, because with the actual weather the cutoff no longer matters.
+- **Soybean:** N3-true beats N3 by 3-6% (-0.30, -0.71 and -1.04 points at 7, 14 and 28 days; 5, 6 and 7 of 7 seasons).
+  This is consistent but small.
+
+### Against the expectation stated before results
+
+- **"Helps most at 28 days and in spring":** right for height, wrong for canopy cover, where the gain is in
+  autumn-winter.
+- **"Does not fix 2016's ripening-period loss":** mixed. Canopy cover in 2016 improved (-1.6 at 28 days); height
+  in 2016 got worse.
+- **"Soybean gains more":** wrong. The relative gain is smaller than for wheat height.
+
+### What this means
+
+- **Near future:** a perfect temperature forecast would remove only a modest part of the shared error. The exception is
+  height in spring. Since a real forecast gets only part of this bound, fetching archived forecasts for the near-future
+  task is not worth it on this evidence. The rule says so, and the result agrees.
+- **End of season:** heading level is different. Here the actual temperature cuts the error of a new year from 9.7 to
+  5.8 days.
+  - A real 2-6 week temperature forecast from the cutoff would get some of that. Seasonal forecasts have little skill,
+    so likely only a small part.
+  - This is a new hypothesis, found in a part reported without a rule. Testing it needs its own design.
