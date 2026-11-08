@@ -1,7 +1,7 @@
-# Forecasting the future of wheat plots: report on weeks 1-4
+# Forecasting the future of wheat plots: report on weeks 1-5
 
 [Back to the project overview](../README.md) · Designs and full results: [plan](01-plan.md), [week 1](02-baselines-design.md),
-[week 2](03-week2-design.md), [week 3](04-week3-design.md), [week 4](05-week4-design.md)
+[week 2](03-week2-design.md), [week 3](04-week3-design.md), [week 4](05-week4-design.md), [week 5](07-weather-upper-bound-design.md)
 
 ## Summary
 
@@ -37,6 +37,12 @@
    - On soybean, the plain learned models beat N3 clearly, at 14 and 28 days in 6 of 7 seasons.
 7. **Showing the future plot by retrieving a past photo** works better than "it will look like today" only at 28 days.
    A better trait forecast does not give a visibly better picture.
+8. **Knowing the coming temperature exactly would help only partly** (week 5, an upper bound that uses future weather on
+   purpose).
+   - Near future: it cuts error by 1-12%. That is clear only for height in spring, so real weather forecasts are not
+     worth fetching for this task.
+   - Heading: the day of heading in a new year, which no model could forecast, would drop from 9.7 to 5.8 days of
+     error.
 
 ## Data
 
@@ -211,6 +217,31 @@ that year was held out.
 *Eight queries drawn at random, not chosen by hand. The retrieved photos match the stage of growth, not the plot's own
 soil and light.*
 
+### How much would the coming weather help? (week 5, an upper bound)
+
+**The method:**
+- Every forecast so far fills the days to the target with the past years' average temperature.
+- Week 5 replaced that with the temperature that actually happened. This deliberately uses future weather, so it
+  measures the best a perfect temperature forecast could do. It is not a forecast.
+
+**The rule, fixed in advance:** fetch real archived weather forecasts if this lowers N3's error by at least 10% at 28
+days, in at least 5 of 6 years.
+
+**Results:**
+- **It does not pass the rule.**
+  - Canopy cover improves by 1% at 14 days and 5% at 28 days.
+  - Height improves by 12% at both horizons, but at 28 days it is better in only 4 of 6 years.
+- **The gain is concentrated:**
+  - height in spring (16-24%);
+  - canopy cover in autumn-winter (7-22%).
+- **No gain for canopy cover in spring or ripening.** So the shared shift is only partly a temperature effect.
+- **Heading is the exception.**
+  - Heading day from the actual degree days has 5.8 days of error, vs 9.7 for the training mean. It is better in 5 of 6
+    years.
+  - So the year-to-year shift in heading is mostly temperature. How much of that a real seasonal forecast could recover
+    is untested.
+- **Soybean:** a consistent but small gain, 3-6%.
+
 ## Negative results
 
 - **Learned models:** they do not beat N3 reliably in every new year, and they lose in the official unseen year at 28
@@ -220,6 +251,7 @@ soil and light.*
 - **Ranges:** the end-of-season ranges are not calibrated for a new year.
 - **Soybean:** the within-field correction did not replicate at 7 and 14 days.
 - **Retrieval:** forecast-based photo retrieval does not beat today's photo at 14 days.
+- **Weather:** even perfect knowledge of the coming temperature does not pass the 10% rule for near-future forecasts.
 
 ## Limitations
 
@@ -233,10 +265,10 @@ soil and light.*
 
 ## Future directions
 
-1. **Forecast the field-wide shift from weather forecasts.**
-   - Most of a new year's error is shared by the whole field, and it comes from the coming weather.
-   - Replacing "average future temperature" with real 1-4 week weather forecasts, issued on the day and so known at
-     forecast time, is the most direct way to cut it.
+1. **Forecast heading from seasonal temperature forecasts.**
+   - Week 5 showed the actual temperature explains most of a new year's heading shift (9.7 to 5.8 days of error).
+   - The next test: archived seasonal or sub-seasonal forecasts issued at the cutoff (for example, ECMWF re-forecasts).
+   - For near-future growth, the same upper bound was too small to justify this (week 5), except height in spring.
 2. **Combine the safe and the accurate model.** Use E-w by default and the plain shift only when the training years
    agree on it, for example when the inner leave-one-year-out shift has a consistent sign.
 3. **The late-season yield photo signal,** tested on new varieties with more data (other FIP trials, or G2F).

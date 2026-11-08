@@ -142,7 +142,7 @@ for the near-future forecasts, and the archived-forecast step is not taken on th
 
 - **Temperature matters where expected and not elsewhere.**
   - Height in spring, the stem-extension period: N3-true gains 16-24% (14 d: 5.84 to 4.42 cm; 28 d: 9.08 to 7.07).
-  - Canopy cover in autumn-winter: 10-22%.
+  - Canopy cover in autumn-winter: 7-22%.
   - Canopy cover in spring and from heading on: about 0 (-3% to +2%).
   - Senescence, ripening and canopy closure are not driven by degree days on our definition.
 - **Canopy cover in 2019 gets worse with the actual temperature** (+1.31 points at 28 days). Matching the temperature
