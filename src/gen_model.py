@@ -78,7 +78,7 @@ def decode(vae, lat):
 def _amp(device):
     if device.type != "cuda":
         return dict(device_type="cpu", enabled=False), None
-    dt = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    dt = torch.bfloat16 if torch.cuda.is_bf16_supported(including_emulation=False) else torch.float16
     return dict(device_type="cuda", dtype=dt), (torch.amp.GradScaler() if dt == torch.float16 else None)
 
 

@@ -4,7 +4,7 @@
 #SBATCH --job-name=wheat-w6-smoke
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu_l40s|gpu_a30
+#SBATCH --constraint=gpu_24gb|gpu_32gb|gpu_48gb|gpu_140gb
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
 #SBATCH --time=01:30:00

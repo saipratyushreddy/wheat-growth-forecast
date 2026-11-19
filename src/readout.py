@@ -62,7 +62,7 @@ def train(jpegs, cover, device, workers=8, seed=0, epochs=EPOCHS, batch=BATCH, t
     k = 0
     for ep in range(epochs):
         for x, y in dl:
-            with torch.autocast("cuda", dtype=torch.bfloat16 if use_amp and torch.cuda.is_bf16_supported() else torch.float16,
+            with torch.autocast("cuda", dtype=torch.bfloat16 if use_amp and torch.cuda.is_bf16_supported(including_emulation=False) else torch.float16,
                                 enabled=use_amp):
                 loss = torch.nn.functional.l1_loss(est(x.to(device)).float(), y.to(device))
             opt.zero_grad(set_to_none=True)

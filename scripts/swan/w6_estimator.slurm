@@ -3,7 +3,7 @@
 #SBATCH --job-name=wheat-w6-estimator
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --constraint=gpu_l40s|gpu_a30
+#SBATCH --constraint=gpu_24gb|gpu_32gb|gpu_48gb|gpu_140gb
 #SBATCH --array=0-5
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
