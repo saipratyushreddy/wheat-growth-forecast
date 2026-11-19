@@ -220,39 +220,7 @@ Everything below was decided before any model was trained or any real generation
    are pinned to L40S or A30 cards, as the cauliflower project's were.
 10. **The smoke test** trains 300 steps on fold 2019 and generates 16 queries, in separate directories
     (`WEEK6_TAG=smoke`). The scoring step refuses to run with that tag.
-
-## Clarifications made while implementing, before any week-6 run
-
-1. **Where code is checked.** From 2026-11-19 nothing is run on the laptop (the user's instruction); every check runs
-   on Swan. The first job of `submit_week6_part1.sh` is the full test suite.
-   - **Before that instruction,** the new tests and a dry run of the scoring code on random stand-in data were run on the
-     laptop. Nothing real was run. One bug was found and fixed that way: after resuming from a checkpoint, the learning
-     rates were read back from the saved optimiser, which had already been warmed up. The generator code now uses the
-     fixed rates, and a test checks that a resumed run equals an uninterrupted one.
-2. **Height is often missing.** Week 3's height forecasts exist for only 56% of the queries, because height and cover
-   are measured on different dates. The height forecast used is the latest height sample issued on or before the query's
-   issue day and at most 3 days before it; never a later one. Otherwise the height input is flagged as missing, as
-   designed. So the generator is conditioned on cover alone for about 44% of queries.
-3. **The distance is recomputed from thumbnails.**
-   - DINOv2 features are computed again for **every** picture compared (today's photo, the retrieved photo, the true
-     future photo and the generated photos), all from 240x160 images resized to 420x280 with the week-3 preprocessing.
-     Real and generated pictures are then treated identically.
-   - So absolute distances are **not comparable** with week 4's (0.43 and 0.56, from full-size photos). Only the paired
-     differences between methods within this week are.
-   - The standardisation still uses the fold's training years' photos only.
-4. **The read-out network.** `microsoft/resnet-18` (Apache-2.0, pinned revision in the code) loaded through
-   `transformers`, not `torchvision`, to avoid another dependency. Same architecture and ImageNet pre-training. Settings
-   fixed: 3 epochs, batch 128, AdamW with a one-cycle rate of 3e-4, L1 loss, horizontal flips.
-5. **Generator settings, fixed in code and not tuned:**
-   - UNet rate 5e-5, number network rate 5e-4, 200 warm-up steps, batch 32, gradient clipping 1.0;
-   - numbers replaced by a learned "no condition" in 10% of steps, so sampling can use guidance;
-   - sampling: 30 deterministic DDIM steps, guidance 3.0 (a conventional value), 8 conditioning tokens, one seed per query.
-   - **Only the number of steps is open.** It is set after the smoke test.
-6. **The read-out of retrieved photos is in-sample.** R-E+P photos come from the training years, which the fold's
-   estimator was trained on, so its read-out of them is probably more accurate than on new photos. This favours R-E+P in
-   the read-out comparison. It is a known limitation, reported as such.
-7. **The rule's year count.** The read-out rule counts years among the folds that pass the estimator gate, and needs at
-   least 4. If fewer than 4 folds pass, it cannot be met. Queries with no retrieved photo would be dropped from every
-   comparison, so all methods use the same queries.
-8. **The smoke test** is a code check on fold 2019 in separate directories (`WEEK6_TAG=smoke`): 300 training steps, 16
-   generated queries. Only runtime, memory and a finite loss are looked at. Its images are not scored and never used.
+11. **Nothing more is run on the laptop.** From 2026-11-19, at the user's instruction, every check and run happens on
+    Swan; the checks in clarification 8 were run on the laptop before that. The first job of
+    `submit_week6_part1.sh` is the full test suite, so the new code is unrun until Swan reports. The smoke script
+    samples the GPU memory while it runs.
