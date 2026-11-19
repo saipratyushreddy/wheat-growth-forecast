@@ -13,6 +13,12 @@ source scripts/swan/env_gpu.sh
 python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available!'; print('GPU:', torch.cuda.get_device_name(0))"
 nvidia-smi --query-gpu=name,memory.total --format=csv
 export WEEK6_TAG=smoke
+# GPU memory in use, sampled every 20 s while the steps run (a separate python process cannot see the peak)
+( while true; do echo "$(date +%T) $(nvidia-smi --query-gpu=memory.used --format=csv,noheader)"; sleep 20; done ) > outputs/week6/slurm/smoke_gpu_memory.txt &
+SAMPLER=$!
+start=$(date +%s)
 python -u src/run_week6.py train 2019 --steps 300
+echo "training 300 steps took $(( $(date +%s) - start )) s (includes loading the model and the pair list)"
 python -u src/run_week6.py generate 2019 --limit 16
-python -c "import torch; print('peak GPU memory (GB):', round(torch.cuda.max_memory_allocated()/1e9, 1))" || true
+kill $SAMPLER || true
+sort -k2 -n outputs/week6/slurm/smoke_gpu_memory.txt | tail -1 | sed 's/^/peak sampled GPU memory: /'
