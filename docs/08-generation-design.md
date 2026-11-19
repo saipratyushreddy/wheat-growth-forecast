@@ -176,3 +176,47 @@ All paired, pooled over six years, with 95% intervals resampling varieties (2,00
 
 A gallery and a small demo page built from the saved generations only, with the metric results beside the pictures. The
 demo makes no claim beyond what is scored here.
+
+## Clarifications made while implementing, before any week-6 run
+
+Everything below was decided before any model was trained or any real generation was scored.
+
+1. **Distance features are recomputed from the thumbnails.** The week-4 distance used DINOv2 features of the full-size
+   photos. A generated photo only exists at 240x160, so comparing it with full-size features would favour real
+   photos. DINOv2 features are therefore recomputed, with the same weights and preprocessing, from the 240x160
+   thumbnail of **every** picture compared (today's photo, the retrieved photo, the true future photo, the generated
+   photos) and of all photos used for the standardisation. The absolute distances are not comparable with week 4's;
+   the paired comparisons are on one footing.
+2. **The estimator is `microsoft/resnet-18`** (Apache-2.0, pinned revision in `src/readout.py`) through the
+   `transformers` library, not torchvision. It is the same architecture with ImageNet weights. Fixed settings: 3
+   epochs, batch 128, AdamW at 3e-4 with a one-cycle schedule, L1 loss, horizontal flips. It is trained on every photo of
+   the five training years with a measured cover within 1 day, and read out on every photo of every year.
+3. **R-E+P's read-out is in-sample for the estimator.** The retrieved photos come from the training years, which the
+   estimator was trained on. Its read-out there is close to the measured cover, which is what retrieval matched. It is
+   scored as designed (the estimator's cover on the picture). This favours R-E+P slightly in rule 1; a read-out win
+   over R-E+P is therefore the harder one.
+4. **Height in the condition.**
+   - A height forecast exists for only 56% of the queries (week-3 forecasts of the height sample issued up to 3 days
+     before the query's issue day, never later). For the rest the missing flag is set, in training as in sampling.
+   - Gen-persist uses the latest measured height on or before the issue day. Gen-oracle uses the height measurement
+     nearest the target day within 3 days.
+5. **Settings fixed now, not tuned:**
+   - 8 conditioning tokens from the numbers;
+   - 10% of training steps drop the numbers (for guidance), and sampling uses guidance 3.0, a conventional value;
+   - 30 DDIM steps, one seed per query (the query id plus 1,000,000 times the variant's index);
+   - batch 32, AdamW at 5e-5 for the UNet and 5e-4 for the number network, 200 warm-up steps, gradient clipping at 1;
+   - mixed precision (bf16, or fp16 where bf16 is unsupported), weights kept in fp32.
+6. **The noise check** uses 84 random queries per fold (504 in all), with three extra samples of Gen each.
+7. **The verdict function:** the folds whose estimator passes the gate decide rule 1, and "at least 4 of 6 years" then
+   counts those folds only; with fewer than four passing folds, rule 1 cannot be met. Faithfulness must hold at both
+   horizons.
+8. **Code checks, not results.**
+   - Six tests added, run on random tiny networks and toy data. They found and fixed one bug before any run: after
+     resuming from a checkpoint, the learning rate was read back from the warmed-up optimiser, so a resumed run was not
+     the same run. A resumed run now equals an uninterrupted one.
+   - The scoring step ran end to end on stand-in generations (random numbers). It wrote every output; the numbers mean
+     nothing. All 8,113 queries have a retrieved photo.
+9. **GPU environment:** a separate `.venv-gpu` (`scripts/swan/setup_gpu.sh`, CUDA PyTorch and `diffusers` 0.43.0). The jobs
+   are pinned to L40S or A30 cards, as the cauliflower project's were.
+10. **The smoke test** trains 300 steps on fold 2019 and generates 16 queries, in separate directories
+    (`WEEK6_TAG=smoke`). The scoring step refuses to run with that tag.

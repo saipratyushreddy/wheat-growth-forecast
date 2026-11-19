@@ -15,3 +15,5 @@ outputs/week2/*
 !outputs/week3/
 outputs/week3/*
 !outputs/week2/settings.json
+.venv-gpu/
+.hf-cache/

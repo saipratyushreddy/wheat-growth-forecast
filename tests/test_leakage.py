@@ -474,3 +474,150 @@ def test_week5_switch_off_reproduces_week3_n3_and_switch_on_uses_actual_degree_d
     assert len(m) == len(w3) and np.allclose(m.N3, m.N3_now, atol=1e-9)
     assert np.allclose(true.target_gdd, true.target_gdd_true.astype(float))
     assert not np.allclose(clim.target_gdd, true.target_gdd)  # the switch changes something
+
+
+# ---------------------------------------------------------------- week 6 (docs/08): generating the future photo
+
+import gen_data as GD  # noqa: E402
+
+
+def _toy_meta():
+    rows = []
+    for y in GD.YEARS:
+        for k in range(30):
+            for das in range(100, 220, 9):
+                rows.append((f"P{y}_{k}", y, f"p/{y}/{k}/{das}.png", das))
+    return pd.DataFrame(rows, columns=["plot_uid", "year", "path", "das"])
+
+
+def test_gen_training_pairs_use_only_training_years_and_look_forward():
+    meta = _toy_meta()
+    for fold in [2016, 2019, 2022]:
+        tr, mon, held = GD.fold_split(meta, fold)
+        assert not (tr & mon).any() and not (tr & held).any() and not (mon & held).any()
+        assert not meta.year[tr | mon].eq(fold).any(), "the held-out year leaks into training or monitoring"
+        assert held.sum() == (meta.year == fold).sum()
+        idx = np.flatnonzero(tr)
+        a, b = GD.enumerate_pairs(meta.plot_uid.values[idx], meta.das.values[idx])
+        assert len(a) > 0
+        pa, pb = meta.iloc[idx[a]], meta.iloc[idx[b]]
+        assert (pa.plot_uid.values == pb.plot_uid.values).all(), "a pair must be one plot"
+        d = pb.das.values - pa.das.values
+        assert (d >= GD.PAIR_MIN).all() and (d <= GD.PAIR_MAX).all(), "the target photo must be 7-35 days later"
+        assert (pa.year != fold).all() and (pb.year != fold).all()
+    # monitor plots are the same plots whichever year is held out (a hash of the id), and never train
+    tr1, mon1, _ = GD.fold_split(meta, 2016)
+    assert set(meta.plot_uid[mon1]) <= {u for u in meta.plot_uid if GD.is_monitor(u)}
+    assert not set(meta.plot_uid[tr1]) & {u for u in meta.plot_uid if GD.is_monitor(u)}
+
+
+def test_gen_pairs_need_a_measured_cover_at_the_target_photo():
+    n = 40
+    das = np.tile(np.arange(100, 140, 1), 1)
+    cover = np.where(np.arange(n) % 2 == 0, np.nan, 0.5)
+    a, b = GD.enumerate_pairs(np.zeros(n, int), das)
+    pd_ = GD.PairData(np.zeros((n, 4, 20, 30), np.float16), das, cover, np.full(n, np.nan), a, b)
+    assert len(pd_) > 0 and not np.isnan(cover[pd_.b]).any()
+    la, lb, c = pd_.batch(np.random.default_rng(0), 8)
+    assert c.shape == (8, GD.COND_DIM) and np.isfinite(c).all()
+    assert (c[:, 2] == 1).all(), "height was set missing, the flag must say so"
+
+
+def test_gen_condition_height_forecast_issued_on_or_before_the_query():
+    f = "outputs/week4/retrieval_queries.parquet"
+    if not os.path.exists(f) or not os.path.exists("outputs/week3/units/2016_none_near.parquet"):
+        pytest.skip("week-3/4 outputs not here")
+    q = pd.read_parquet(f)
+    q = q[q.year.isin([2016, 2019])].reset_index(drop=True)
+    m = GD.height_forecast(q, with_issue=True).merge(q[["qid", "issue_das"]], on="qid")
+    got = m.dropna(subset=["hf_issue"])
+    assert len(got) > 0
+    assert (got.hf_issue <= got.issue_das).all(), "a height forecast issued after the query day was used"
+    assert (got.issue_das - got.hf_issue <= GD.HEIGHT_FC_TOL).all()
+
+
+def test_gen_persistence_and_oracle_lookups():
+    lk = {"u": (np.array([10, 20, 30]), np.array([0.1, 0.2, 0.3], np.float32))}
+    assert GD.latest(lk, "u", 25) == pytest.approx(0.2) and np.isnan(GD.latest(lk, "u", 5))
+    assert GD.latest(lk, "u", 30) == pytest.approx(0.3), "a measurement on the issue day itself is allowed"
+    assert GD.nearest(lk, "u", 22, 3) == pytest.approx(0.2)
+    assert np.isnan(GD.nearest(lk, "u", 25, 3)), "a measurement 5 days away is outside a 3-day tolerance"
+    assert GD.nearest(lk, "u", 15, 5) == pytest.approx(0.1), "a tie goes to the earlier measurement"
+
+
+def test_gen_estimator_trains_on_training_years_and_distance_standardiser_ignores_heldout_year():
+    meta = _toy_meta()
+    cover = np.where(np.arange(len(meta)) % 3 == 0, np.nan, 0.4)
+    for fold in [2017, 2021]:
+        rows = GD.estimator_rows(meta, cover, fold)
+        assert not meta.year[rows].eq(fold).any() and not np.isnan(cover[rows]).any()
+    F = np.random.default_rng(0).normal(size=(len(meta), 6))
+    mu, sd = GD.standardiser(F, meta.year.values, 2019)
+    F2 = F.copy()
+    F2[meta.year.values == 2019] += 100.0
+    mu2, sd2 = GD.standardiser(F2, meta.year.values, 2019)
+    assert np.allclose(mu, mu2) and np.allclose(sd, sd2), "the held-out year changed the standardisation"
+
+
+def test_gen_queries_are_weeks_4():
+    if not os.path.exists("data/photos/features_2016.parquet"):
+        pytest.skip("photo tables only on Swan")
+    from common import load_derived
+    _, series, _ = load_derived()
+    q, cond = GD.load_queries(series)
+    q4 = pd.read_parquet(GD.QUERIES)
+    assert set(q.qid) == set(q4.qid) and len(q) == len(q4)
+    for v in GD.VARIANTS:
+        assert cond[v].shape == (len(q), GD.COND_DIM) and np.isfinite(cond[v]).all()
+    assert np.allclose(cond["Gen"][:, 0], np.clip(q["E+P"], 0, 1)), "Gen must be conditioned on the E+P forecast"
+    assert np.allclose(cond["Gen-oracle"][:, 0], np.clip(q.target, 0, 1))
+    assert (q.now_path.notna()).all() and (q.future_path.notna()).all()
+
+
+def test_gen_model_code_tiny():
+    """Code check on random tiny networks: training is finite and exactly resumable; sampling is deterministic per
+    seed and does not depend on the batch."""
+    import torch
+    import gen_model as GM
+    import readout as RO
+    dev = torch.device("cpu")
+    n = 60
+    das = np.tile(np.arange(100, 160), 1)
+    rng = np.random.default_rng(0)
+    lat = rng.normal(size=(n, 4, 20, 30)).astype(np.float16)
+    a, b = GD.enumerate_pairs(np.zeros(n, int), das)
+    data = GD.PairData(lat, das, np.full(n, 0.5), np.full(n, 0.3), a, b)
+
+    def fresh():
+        torch.manual_seed(0)
+        return GM.tiny_unet(), GM.NumberNet(dim=32)
+
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        u1, n1 = fresh()
+        u1, n1 = GM.train(data, 4, f"{d}/a.pt", dev, unet=u1, numnet=n1, batch=4, ckpt_every=2, log=lambda *x: None)
+        u2, n2 = fresh()
+        GM.train(data, 2, f"{d}/b.pt", dev, unet=u2, numnet=n2, batch=4, ckpt_every=2, log=lambda *x: None)
+        u3, n3 = fresh()
+        u3, n3 = GM.train(data, 4, f"{d}/b.pt", dev, unet=u3, numnet=n3, batch=4, ckpt_every=2, log=lambda *x: None)
+    for p, q_ in zip(u1.parameters(), u3.parameters()):
+        assert torch.allclose(p, q_, atol=1e-6), "a resumed run differs from an uninterrupted one"
+    la = torch.from_numpy(lat[:3].astype(np.float32))
+    c = torch.from_numpy(np.array([[0.2, 0, 1, 0.5, 0.5]] * 3, np.float32))
+    x1 = GM.sample(u1, n1, la, c, [1, 2, 3], dev, steps=3)
+    x2 = GM.sample(u1, n1, la[:1], c[:1], [1], dev, steps=3)
+    assert x1.shape == (3, 4, 20, 30) and torch.isfinite(x1).all()
+    assert torch.allclose(x1[:1], x2, atol=1e-4), "a sample depends on its batch"
+    assert not torch.allclose(x1[0], x1[1])
+    est = RO.Estimator(tiny=True)
+    from PIL import Image
+    jpegs = []
+    for i in range(8):
+        buf = __import__("io").BytesIO()
+        Image.fromarray(rng.integers(0, 255, (160, 240, 3), dtype=np.uint8)).save(buf, "JPEG")
+        jpegs.append(buf.getvalue())
+    e = RO.train(jpegs, np.linspace(0, 1, 8), dev, workers=0, epochs=1, batch=4, tiny=True, log=lambda *x: None)
+    hat = RO.predict_jpegs(e, jpegs, dev, workers=0)
+    assert hat.shape == (8,) and np.isfinite(hat).all() and (hat >= 0).all() and (hat <= 1).all()
+    g = RO.gate(np.array([0.1, 0.5, 0.9]), np.array([0.1, 0.5, 0.9]))
+    assert g["passed"] and g["mae"] == 0
