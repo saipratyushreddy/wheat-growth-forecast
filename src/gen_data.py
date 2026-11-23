@@ -57,7 +57,7 @@ def load_thumbs(year, paths=None):
 
 def decode(jpeg):
     from PIL import Image
-    return np.asarray(Image.open(io.BytesIO(jpeg)).convert("RGB"), np.uint8)  # (160, 240, 3)
+    return np.array(Image.open(io.BytesIO(jpeg)).convert("RGB"), np.uint8)  # (160, 240, 3)
 
 
 # ---------------------------------------------------------------- measurements

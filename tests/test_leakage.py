@@ -621,3 +621,30 @@ def test_gen_model_code_tiny():
     assert hat.shape == (8,) and np.isfinite(hat).all() and (hat >= 0).all() and (hat <= 1).all()
     g = RO.gate(np.array([0.1, 0.5, 0.9]), np.array([0.1, 0.5, 0.9]))
     assert g["passed"] and g["mae"] == 0
+
+
+def test_gen_dataloader_workers_start_under_python_314():
+    """Week 6's first Swan run failed in all six preparation tasks: a dataset class defined inside a function cannot be
+    sent to a data-loader worker started by forkserver (Python 3.14's default). The datasets must work with real workers,
+    both with fork (used) and with forkserver (in case a later change drops it)."""
+    import io
+
+    import torch
+    from PIL import Image
+
+    import readout as RO
+    import run_week6 as R6
+    rng = np.random.default_rng(1)
+    jpegs = []
+    for _ in range(6):
+        b = io.BytesIO()
+        Image.fromarray(rng.integers(0, 255, (160, 240, 3), dtype=np.uint8)).save(b, "JPEG")
+        jpegs.append(b.getvalue())
+    cpu = torch.device("cpu")
+    est = RO.train(jpegs, np.linspace(0, 1, 6), cpu, workers=2, epochs=1, batch=2, tiny=True, log=lambda *x: None)
+    assert RO.predict_jpegs(est, jpegs, cpu, workers=2, batch=3).shape == (6,)
+    for method in ["fork", "forkserver"]:
+        dl = torch.utils.data.DataLoader(R6.PrepSet(jpegs), batch_size=3, num_workers=2, multiprocessing_context=method)
+        x, pre = next(iter(dl))
+        assert x.shape == (3, 160, 240, 3) and pre.shape == (3, 3, 280, 420), method
+        assert x.flags.writeable if hasattr(x, "flags") else True

@@ -55,7 +55,7 @@ def train(jpegs, cover, device, workers=8, seed=0, epochs=EPOCHS, batch=BATCH, t
     est = Estimator(tiny).to(device).train()
     opt = torch.optim.AdamW(est.parameters(), lr=LR, weight_decay=0.01)
     dl = torch.utils.data.DataLoader(JpegSet(jpegs, np.clip(cover, 0, 1), flip=True), batch_size=batch, shuffle=True,
-                                     num_workers=workers, drop_last=True, generator=torch.Generator().manual_seed(seed))
+                                     num_workers=workers, multiprocessing_context="fork" if workers else None, drop_last=True, generator=torch.Generator().manual_seed(seed))
     steps = epochs * len(dl)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, LR, total_steps=steps)
     use_amp = device.type == "cuda"
@@ -86,7 +86,8 @@ def predict_uint8(est, arr, device, batch=256):
 
 @torch.no_grad()
 def predict_jpegs(est, jpegs, device, workers=8, batch=256):
-    dl = torch.utils.data.DataLoader(JpegSet(jpegs), batch_size=batch, shuffle=False, num_workers=workers)
+    dl = torch.utils.data.DataLoader(JpegSet(jpegs), batch_size=batch, shuffle=False, num_workers=workers,
+                                     multiprocessing_context="fork" if workers else None)
     return np.concatenate([est(x.to(device)).float().clamp(0, 1).cpu().numpy() for x, _ in dl]) if len(jpegs) else \
         np.zeros(0, np.float32)
 

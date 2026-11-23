@@ -63,7 +63,9 @@ def measurements(plots, series, meta):
         assert (m.path.values == meta.path.values).all()
         return m.cover.values, m.height.values
     cov, hei = GD.photo_measurements(meta, GD.trait_lookup(series, "canopy_cover"), GD.trait_lookup(series, "height"))
-    pd.DataFrame({"path": meta.path.values, "cover": cov, "height": hei}).to_parquet(f, index=False)
+    tmp = f"{f}.{os.getpid()}.tmp"  # the array tasks of one job may all get here at once: write whole, then rename
+    pd.DataFrame({"path": meta.path.values, "cover": cov, "height": hei}).to_parquet(tmp, index=False)
+    os.replace(tmp, f)
     return cov, hei
 
 
@@ -95,9 +97,23 @@ class Dino:
         return np.concatenate([self(self.inputs(arr[i:i + batch])) for i in range(0, len(arr), batch)])
 
 
-def prep(year):
-    import torch
+class PrepSet:
+    """Thumbnail jpegs -> (uint8 image tensor, DINOv2 input). A module-level class, so a data-loader worker can be started
+    by any multiprocessing method (Python 3.14 defaults to forkserver, which pickles the dataset)."""
 
+    def __init__(self, jpegs):
+        self.jpegs = jpegs
+
+    def __len__(self):
+        return len(self.jpegs)
+
+    def __getitem__(self, i):
+        import torch
+        a = GD.decode(self.jpegs[i])
+        return torch.from_numpy(a), Dino.inputs(a[None])[0]
+
+
+def prep(year):
     import gen_model as GM
     if os.path.exists(f"{GEN}/dino_{year}.npy"):
         return log(year, "already done")
@@ -110,15 +126,8 @@ def prep(year):
     dev = device()
     vae, dino = GM.load_vae().to(dev), Dino(dev)
 
-    class Set(torch.utils.data.Dataset):
-        def __len__(self):
-            return len(jp)
-
-        def __getitem__(self, i):
-            a = GD.decode(jp[i])
-            return torch.from_numpy(a), Dino.inputs(a[None])[0]
-
-    dl = torch.utils.data.DataLoader(Set(), batch_size=128, num_workers=8)
+    import torch
+    dl = torch.utils.data.DataLoader(PrepSet(jp), batch_size=128, num_workers=8, multiprocessing_context="fork")
     lat, feat = [], []
     for k, (x, pre) in enumerate(dl):
         lat.append(GM.encode(vae, x.to(dev)).half().cpu().numpy())
