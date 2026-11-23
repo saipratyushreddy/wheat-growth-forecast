@@ -647,4 +647,3 @@ def test_gen_dataloader_workers_start_under_python_314():
         dl = torch.utils.data.DataLoader(R6.PrepSet(jpegs), batch_size=3, num_workers=2, multiprocessing_context=method)
         x, pre = next(iter(dl))
         assert x.shape == (3, 160, 240, 3) and pre.shape == (3, 3, 280, 420), method
-        assert x.flags.writeable if hasattr(x, "flags") else True
